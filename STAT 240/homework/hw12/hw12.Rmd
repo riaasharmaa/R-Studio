@@ -1,0 +1,285 @@
+---
+author: "Ria Sharma"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, fig.height = 4)
+library(tidyverse)
+library(modelr)
+library(ggplot2)
+library(dplyr)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+```
+
+\renewcommand{\prob}{\mathsf{P}}
+\newcommand{\E}{\mathsf{E}}
+\newcommand{\Var}{\mathsf{Var}}
+\newcommand{\SD}{\mathsf{SD}}
+\newcommand{\SE}{\mathsf{SE}}
+
+## Homework Assignment 12
+
+### Preliminaries
+
+- Directories
+    - COURSE/homework/
+    - COURSE/homework/hw12/
+    - COURSE/data/
+    - COURSE/scripts/
+- Files
+  - COURSE/homework/hw12/hw12.Rmd
+  - COURSE/data/boston-marathon-data.csv
+  - COURSE/data/lake-monona-winters-2023.csv
+  - COURSE/data/dugong.csv
+  - COURSE/scripts/viridis.R
+  - COURSE/scripts/ggprob.R
+
+### Data
+
+- Some problems use the data set on lengths and ages of a sample of dugongs in the file `dugong.csv`.
+- Other problems use the Boston Marathon data in the file `boston-marathon-data.csv`.
+- Additional problems use data from freeze durations in Lake Monona which we also saw earlier in the semester.
+
+### Aims
+
+- Practice regression inference
+
+## Problems
+
+Problems 1--3 are based on the data set in the file *dugong.csv* which relates age (in years) and length (in meters) of a sample of 27 dugongs, a type of marine mammal.
+
+Credit:  The *dugong.csv* file is from Data8 at UC-Berkeley.
+
+### 1.
+Read in the dugong data set.
+Calculate and interpret in context a 95% confidence interval for the average age of all dugongs in the population from which the data was sampled with a length of 2.5 meters.
+
+```{r}
+dugong_data <- read.csv("../../data/dugong.csv")
+model <- lm(Age ~ Length, data = dugong_data)
+new_data <- data.frame(Length = 2.5)
+predicted_age <- predict(model, newdata = new_data, interval = "confidence", level = 0.95)
+print(predicted_age)
+```
+> Fit: The estimated average age for dugongs that are 2.5 meters long is approximately 14.86 years.
+
+> Lower Bound (lwr): The lower limit of the 95% confidence interval is about 12.78 years, suggesting with 95% confidence that the true average age is not less than this value.
+
+> Upper Bound (upr): The upper limit is about 16.94 years, suggesting with 95% confidence that the true average age does not exceed this value.
+
+> We are 95% confident that the true average age of dugongs in the population from which this sample was drawn, and who have a length of 2.5 meters, lies between 12.78 and 16.94 years.
+
+### 2.
+Calculate and interpret in context a 95% prediction interval for the age of a single dugong which measures 2.5 meters in length.
+
+```{r}
+new_data <- data.frame(Length = 2.5)
+predicted_age_individual <- predict(model, newdata = new_data, interval = "prediction", level = 0.95)
+print(predicted_age_individual)
+```
+
+> Fit: The estimated age for a single dugong of 2.5 meters is approximately 14.86 years.
+
+> Lower Bound (lwr): The lower limit of the 95% prediction interval is about 5.40 years.
+
+> Upper Bound (upr): The upper limit is about 24.32 years.
+
+> We are 95% confident that the age of any single dugong that measures 2.5 meters will be between 5.40 and 24.32 years.
+
+### 3.
+Graph the dugong data with length on the x axis and age on the y axis.
+
+- Add a blue ribbon which shows the widths of 95% prediction intervals for individual ages over the range of lengths
+
+- Add a red ribbon which shows the widths of 95% confidence intervals for mean ages over the range of lengths.
+
+- Add a plot of the least-squares regression line.
+
+> Note: The function `geom_ribbon()` takes arguments `x`, `ymin`, and `ymax`. For each `x`, the area between `ymin` and `ymax` is filled. You may choose to create a supplementary data frame for x values ranging from values which span the data and are uniformly spread out and then calculate `ymin` and `ymax` using formulas from lecture notes on prediction and confidence intervals.
+
+```{r}
+length_seq <- seq(min(dugong_data$Length), max(dugong_data$Length), length.out = 100)
+new_data <- data.frame(Length = length_seq)
+predictions <- predict(model, newdata = new_data, interval = "prediction", level = 0.95)
+confidences <- predict(model, newdata = new_data, interval = "confidence", level = 0.95)
+new_data$fit = predictions[, "fit"]
+new_data$pred_lower = predictions[, "lwr"]
+new_data$pred_upper = predictions[, "upr"]
+new_data$conf_lower = confidences[, "lwr"]
+new_data$conf_upper = confidences[, "upr"]
+base_plot <- ggplot() +
+  geom_point(data = dugong_data, aes(x = Length, y = Age)) +  
+  geom_line(data = new_data, aes(x = Length, y = fit), color = "black") +  
+  geom_ribbon(data = new_data, aes(x = Length, ymin = pred_lower, ymax = pred_upper), 
+              fill = "blue", alpha = 0.3) +  
+  geom_ribbon(data = new_data, aes(x = Length, ymin = conf_lower, ymax = conf_upper), 
+              fill = "red", alpha = 0.2) +  
+  labs(title = "Dugong Age vs. Length with Prediction and Confidence Intervals",
+       x = "Length (meters)", y = "Age (years)") +
+  theme_minimal()
+print(base_plot)
+```
+
+Problems 4--6 use the Lake Monona freeze duration data.
+
+
+
+### 4.
+Read the Lake Monona Data.
+
+```{r}
+monona_data <- read.csv("../../data/lake-monona-winters-2023.csv")
+```
+-4a. Plot `duration` versus `year1` and add a regression line.
+
+```{r}
+ggplot(monona_data, aes(x = year1, y = duration)) +
+  geom_point() +  
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +  
+  labs(title = "Duration vs. Year for Lake Monona",
+       x = "Year",
+       y = "Duration (days)") +
+  theme_minimal()
+```
+
+-4b. Create a residual plot.
+
+```{r}
+monona_model <- lm(duration ~ year1, data = monona_data)
+monona_data$residuals <- residuals(monona_model)
+monona_data$fitted <- fitted(monona_model)
+ggplot(monona_data, aes(x = fitted, y = residuals)) +
+  geom_point() +  
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +  
+  labs(title = "Residual Plot for Lake Monona Data",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+```
+
+-4c. What does the residual plot suggest about the suitability of using a linear regression model and the year to predict the duration that Lake Monona's surface is covered with ice?
+
+> The residual plot suggests that a linear regression model may be suitable for predicting the duration of ice cover on Lake Monona based on the year. The residuals are seemingly randomly distributed around the horizontal line with no clear pattern, which implies that the linear model's assumptions—such as linearity and homoscedasticity—are likely met. While there are a few larger residuals indicating possible outliers, they do not appear to follow a systematic pattern that would suggest a non-linear relationship or varying error variances, hence not undermining the suitability of a linear model significantly.
+
+
+### 5.
+Create and interpret a 95% confidence interval for the slope of the regression line which models `duration` versus `year1`.
+
+```{r}
+model_summary <- summary(monona_model)
+slope_estimate <- model_summary$coefficients["year1", "Estimate"]
+slope_se <- model_summary$coefficients["year1", "Std. Error"]
+t_value <- qt(0.975, df = model_summary$df[2])  
+ci_lower <- slope_estimate - t_value * slope_se
+ci_upper <- slope_estimate + t_value * slope_se
+ci_lower
+ci_upper
+```
+
+> The 95% confidence interval for the slope of the regression line indicates the range of plausible values for the actual slope in the population from which the sample was drawn, with 95% confidence. If the interval does not include zero, it suggests that there is a statistically significant linear relationship between the year and the duration of ice cover on Lake Monona. The slope tells you the expected change in the duration of ice cover for a one-year increase. If the slope is positive, it suggests that the duration is increasing over the years; if negative, the duration is decreasing.
+
+
+### 6.
+
+-6a. Create a table with the endpoints of 95% prediction intervals for the total duration that Lake Monona's surface is covered by ice in the years 2030, 2040, \ldots, 2100.
+Print the table
+
+```{r}
+future_years <- data.frame(year1 = seq(2030, 2100, by = 10))
+prediction_intervals <- predict(monona_model, newdata = future_years, interval = "prediction", level = 0.95)
+data.frame(Year = future_years$year1, Lower = prediction_intervals[, "lwr"], Upper = prediction_intervals[, "upr"])
+```
+
+-6b. Comment on the suitability of extrapolating the linear relationship of duration versus time for Lake Monona freeze data 70 years into the future.
+
+> Climatic and environmental factors, which are likely to change over such a long period, are not accounted for in a simple linear model based on historical data. The increasing uncertainty in the predictions, as reflected by the widening intervals, also undermines the precision of these estimates. Therefore, using this model for such long-term predictions assumes that the historical linear trend will continue unchanged, which is a strong and potentially unrealistic assumption given the complex nature of climate systems and the multitude of influencing factors that could alter future trends.
+
+
+
+Problems 7--8 use the Boston Marathon data.
+
+
+
+### 7.
+Read the Boston Marathon data.
+
+```{r}
+boston_data <- read.csv("../../data/boston-marathon-data.csv")
+```
+
+-7a. Create a 95% prediction interval for the finishing time of a 40-year-old man using the data from all male finishers in the 2010 race.
+
+```{r}
+male_finishers_2010 <- boston_data %>%
+  filter(Sex == 'male', Year == 2010)
+model <- lm(Time ~ Age, data = male_finishers_2010)
+new_data <- data.frame(Age = 40)
+prediction_interval <- predict(model, newdata = new_data, interval = "prediction", level = 0.95)
+print(prediction_interval)
+```
+
+
+-7b. What proportion of 40-year-old men finishers in the 2011 race have times within this prediction interval?
+
+```{r}
+male_2011_40_finishers = boston_data %>% 
+  filter(Year == 2011, 
+         Sex == "male",
+         Age == 40) %>% 
+  mutate(finished_in_interval = ifelse(
+    Time >= 147.4171 & Time <= 288.2414, 1, 0
+  )) %>% 
+  summarize(
+    n = n(),
+    num_in_interval = sum(finished_in_interval),
+    prop = num_in_interval/n
+  )
+male_2011_40_finishers
+```
+
+-7c. Which assumptions of a linear model might be violated in this data and potentially cause the 95% prediction interval in 7a to be misleading?
+
+> The assumptions of the linear model that might be violated in the Boston Marathon data include non-linearity in the relationship between age and finish times, heterogeneity in the variance of times across different ages , and potential correlations between runners' performances. These violations could make the 95% prediction interval misleading by not accurately reflecting the variability in finish times.
+
+### 8.
+
+-8a. Create a 95% confidence interval for the mean finish time of all 40-year-old women using data from the 2010 Boston marathon.
+
+```{r}
+female_2010 = boston_data %>% 
+  filter(Year == 2010,
+         Sex == "female")
+mod = lm(Time ~ Age, data = female_2010)
+age_40 <- data.frame(Age = 40)
+conf_int <- predict(mod, age_40, interval = "confidence", level = 0.95)
+conf_int
+```
+
+-8b. Using data from the 2011 Boston Marathon, calculate the sample mean finish time of all 40-year-old women. Is it in the previous interval?
+
+```{r}
+boston_data %>% 
+  filter(Year == 2011,
+         Sex == "female") %>% 
+  summarize(mean = mean(Time))
+```
+
+-8c. Using the data from the 2011 Boston Marathon,
+fit a regression line of finishing time versus age for women finishers and calculate the value of the finishing time at age 40 for this line.
+Is this value within the interval in part 8a?
+
+```{r}
+finishers_2011 = boston_data %>% 
+  filter(Year == 2011,
+         Sex == "female")
+model = lm(Time ~ Age, data = finishers_2011)
+predicted_value = predict(model, newdata = data.frame(Age = 40))
+predicted_value
+```
+
+-8d. Which assumptions of a linear model might be violated and potentially cause the confidence interval in 8b to be misleading?
+
+> The confidence interval for marathon finish times might be misleading if the relationship between age and time isn't strictly linear or if finish times vary more for runners of certain ages. Additionally, if runners influence each other's times or if there are a few very fast or slow finishers, these could also affect the accuracy of the model, making the confidence interval less reliable.
+
