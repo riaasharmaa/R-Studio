@@ -1,0 +1,143 @@
+---
+title: "Homework 1"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem #1: Working with Data Frame <small>2pts each part</small>
+
+In this problem we'll review accessing data in a data frame and some basic statistical functions you should be familiar with.
+
+```{r}
+library(datasets)
+data(iris)
+summary(iris)
+```
+
+a.  In the `iris` data set, how many columns are there and how many rows?
+
+```{r}
+nrow(iris)
+ncol(iris)
+```
+> The iris data set has 5 columns and 150 rows.
+
+b.  Write a line of `R` code to output the 4th row of the data frame.
+
+```{r}
+iris[4, ]
+```
+
+c.  Write a line of `R` code to create a data frame called `iris.setosa` which contains all rows of the setosa species.
+
+```{r}
+iris.setosa <- iris[iris$Species == "setosa", ]
+iris.setosa
+```
+
+d.  What is the mean petal width of all irises in the data set? What is the mean petal width of the versicolor irises?
+
+```{r}
+# mean petal width of all irises
+mean(iris$Petal.Width)
+# mean petal width of the versicolor irises
+mean(iris[iris$Species == "versicolor", ]$Petal.Width)
+```
+
+e.  Create a scatter plot of sepal length vs petal length. Color the dots by species and add a legend to your plot.
+
+```{r}
+library(ggplot2)
+
+ggplot(iris, aes(x = Sepal.Length, y = Petal.Length, color = Species)) +
+  geom_point() +
+  labs(title = "Sepal Length vs Petal Length",
+       x = "Sepal Length",
+       y = "Petal Length") +
+  theme_minimal() +
+  scale_color_manual(values = c("setosa" = "pink", "versicolor" = "cyan", "virginica" = "yellow"))
+```
+
+## Problem #2: Loops and Function <small>3pts each part</small>
+
+a.  Write a for loop that prints out the first 10 values of the Fibonacci sequence. The sequence begins with two 1s, and each subsequent number is the sum of the two numbers before. You should create an numeric vector called `fibonacci`. The first two elements of the vector should be hard coded. The rest of the elements of the vector should be populated using your for loop.
+
+```{r}
+fibonacci <- c(1, 1)
+for (i in 3:10) {
+  fibonacci[i] <- fibonacci[i - 1] + fibonacci[i - 2]
+}
+print(fibonacci)
+```
+
+b.  Write a function called `custombonacci` which takes three parameter
+    -   a, the first value in the sequence
+    -   b, the second value in the sequence
+    -   n, the length of the sequence After you call the function it should return a vector of length n. Elements 3 through n should be calculated by adding the two previous elements of the vector.
+    
+```{r}
+custombonacci <- function(a, b, n) {
+  sequence <- c(a, b)
+  for (i in 3:n) {
+    sequence[i] <- sequence[i - 1] + sequence[i - 2]
+  }
+  return(sequence)
+}
+```
+c.  Call the `custombonacci` with a=1, b=-2 and n=12
+```{r}
+print(custombonacci(1, -2, 12))
+```
+## Problem #3: It Depends... <small>3pts each part</small>
+
+a.  Write a function called `divisible` which takes two inputs:
+    -   `x`, an integer
+    -   `d`, a divisor If `x` is not an integer, the function should print a message saying so. Otherwise it should output a statement of either "x is divisible by d" or "x is not divisible by d".
+```{r}
+divisible <- function(x, d) {
+  if (!is.numeric(x) || x != as.integer(x)) {
+    print("x is not an integer")
+  } else {
+    if (x %% d == 0) {
+      print(paste(x, "is divisible by", d))
+    } else {
+      print(paste(x, "is not divisible by", d))
+    }
+  }
+}
+```
+b.  Replace `x` and `d` in the output statement with the values themselves. For example, if you call `divisible(27,3)` you should get a message "27 is divisible by 3". If you call `divisible(6,4)` You should get a message "6 is not divisible by 4".
+```{r}
+divisible(27, 3)
+divisible(6, 4)
+```
+c.  Create a function called `cdf` which takes in a value `x` and outputs a value according to the following function: $$
+    \text{cdf}(x) = \begin{cases}
+    0 & \text{if } x < 0 \\
+    x^2 & \text{if }0 \leq x \leq 1\\
+    1 & \text{if }x>1
+    \end{cases}
+    $$ Your function can use a combination of the `ifelse`, `min` and `max` functions to achieve the desired behavior.
+```{r}
+# Define the cdf function
+cdf <- function(x) {
+  if (x < 0) {
+    return(0)
+  } else if (x >= 0 && x <= 1) {
+    return(x^2)
+  } else {
+    return(1)
+  }
+}
+```
+```{r}
+#Expected Output: 0
+cdf(-4)
+#Expected Output: 0.25
+cdf(0.5)
+#Expected Output: 1
+cdf(8)
+```
