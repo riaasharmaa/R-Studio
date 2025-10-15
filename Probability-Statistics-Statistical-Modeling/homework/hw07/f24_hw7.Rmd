@@ -1,0 +1,226 @@
+---
+title: "Homework 7"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,eval=T,message=F,warning=F,fig.align='center')
+library(tidyverse)
+```
+
+## Problem \#1: Estimating Quantiles <small>(8 pts; 2pts each)</small>
+
+There are 9 algorithms in R to estimate population quantiles. Type `?quantile` to read about them. Here we will investigate the variance of some of these estimators. To use the quantile function you use the syntax
+`quantile(vector, probs, type)`.
+For example if you have data in a vector called `sampleData` and you wish to estimate the 80th percentile using algorithm 7 (the default), you use
+`quantile(sampleData, .80, type=7)`
+
+Suppose we're interested in the 95th percentile for $X$, and we know that $X$ follows a uniform distribution. We want to randomly sample $n=30$ values and estimate the 95th percentile. Using MC simulation estimate the following:
+
+```{r}
+n = 30
+NMC = 10000
+true_unif = 0.95
+for(i in 4:9){
+  quantile_estimate = replicate(NMC, quantile(runif(n), 0.95, type = i))
+  absolute_bias = mean(abs(quantile_estimate - true_unif))
+  variance = var(quantile_estimate)
+  cat("Absolute Bias Type", i, ":",absolute_bias, "Variance:", variance, "\n")
+}
+```
+
+a. Which quantile algorithm (4 through 9) has the smallest absolute bias ($|\hat{\theta}-\theta|$)? *Hint: you can use $unif(0,1)$ for the purposes of this estimation, as your answer won't depend on the upper and lower bounds chosen.*
+
+> Algorithm 6 has the smallest absolute bias at 0.02689442.
+
+b. Which quantile algorithm (4 through 9) has the smallest variance?
+
+> Algorithm 6 also has the smallest variance at 0.001196353.
+
+c. Which method is best for estimating the 95th percentile from a uniform distribution? Justify your answer.
+
+> Since both the absolute bias and variance are minimized by Algorithm 6 for the uniform distribution, itis the best method for estimating the 95th percentile of a uniform distribution because a low bias and variance indicate a more reliable and accurate estimator.
+
+```{r}
+n = 30
+NMC = 10000
+true_norm = qnorm(0.95)
+for(i in 4:9){
+  quantile_estimate = replicate(NMC, quantile(rnorm(n), 0.95, type = i))
+  absolute_bias = mean(abs(quantile_estimate - true_norm))
+  variance = var(quantile_estimate)
+  cat("Absolute Bias Type", i, ":",absolute_bias, "Variance:", variance, "\n")
+}
+```
+
+d. What about if $X\sim N(\mu, \sigma^2)$? Would you prefer a different method for estimating the 95th percentile from a normal distribution? *Hint: repeat the same analysis for $N(0,1)$.*
+
+> For the normal distribution, the smallest absolute bias is with Algorithm 7 (0.2884968), and the smallest variance is with Algorithm 4 (0.1039666). If minimizing bias is the priority, Algorithm 7 would be preferred, while Algorithm 4 is preferable for minimizing variance. Since the normal distribution has a different tail structure compared to the uniform distribution, using Algorithm 4 might be preferred because it minimizes variance significantly. However, if we prioritize minimizing bias, Algorithm 7 could be considered. In conclusion, for a normal distribution, Algorithm 4 may be optimal for balance, especially given the low variance.
+
+## Problem \#2: Estimating a Geometric $p$ <small>(6 pts; 2 pts each)</small>
+
+a. Use the method of moments to come up with an estimator for a geometric distributions parameter $p$. *Hint: Use the fact that if $X\sim Geom(p)$ then $EX=\frac{1-p}{p}*$. 
+
+```{r}
+set.seed(123)     
+p_true <- 0.15   
+n <- 13     
+sample_data <- rgeom(n, prob = p_true)
+sample_mean <- mean(sample_data)
+p_hat <- 1 / (sample_mean + 1)
+cat("True p:", p_true, "\n")
+cat("Estimated p using method of moments:", p_hat, "\n")
+```
+
+b. Estimate the sampling distribution of this estimator when we sample $n=13$ values from from $Geom(.15)$. Show the histogram of the estimated sampling distribution.
+
+```{r}
+set.seed(123)           
+p_true <- 0.15         
+n <- 13           
+n_sim <- 1000      
+p_estimates <- replicate(n_sim, {
+  sample_data <- rgeom(n, prob = p_true) 
+  x_bar <- mean(sample_data)       
+  p_hat <- 1 / (x_bar + 1)        
+  p_hat
+})
+hist(p_estimates, main = "Sampling Distribution of p̂ (Geometric p Estimator)",
+     xlab = "Estimated p", breaks = 20, col = "pink")
+```
+
+c. Estimate the bias of this estimator. Is it biased? If it is biased how would you modify it so that you could create an unbiased estimator?
+
+```{r}
+mean_p_hat <- mean(p_estimates)
+bias <- mean_p_hat - p_true
+cat("Estimated Bias:", bias, "\n")
+if (abs(bias) > 1e-5) {
+  cat("The estimator is biased.\n")
+} else {
+  cat("The estimator appears to be unbiased.\n")
+}
+```
+
+> To create an unbiased estimator for p in R, we can adjust the method of moments estimator by introducing a correction factor. Given the observed bias of approximately +0.01137, we modify the estimator to:
+
+```{r}
+p_hat_unbiased <- 1 / (sample_mean + 1 - 0.01137)
+```
+
+> This adjustment reduces the bias, making the estimator closer to the true p on average.
+
+## Problem \#3: Estimating $\lambda$ from a Poisson Distribution<small>(8 pts; 2 pts each)</small>
+
+It is interesting that if $X\sim Pois(\lambda)$ that $EX=VarX=\lambda$. One could use either $\bar{X}$ or $S^2$ as an estimator of $\lambda$ perhaps. 
+
+a. Using $n=15$ and $\lambda=20$ for this problem, use MC simulation to estimate the sampling distribution of The estimator $\bar{X}$. Show its histogram. 
+
+```{r}
+set.seed(123)
+lambda <- 20    
+n <- 15       
+n_sim <- 1000 
+x_bar_estimates <- replicate(n_sim, {
+  sample_data <- rpois(n, lambda)
+  mean(sample_data)
+})
+hist(x_bar_estimates, main = "Sampling Distribution of X̄ (Estimator for λ)",
+     xlab = "X̄", breaks = 20, col = "lightblue")
+```
+
+b. Repeat the same but this time use $S^2$. 
+
+```{r}
+s2_estimates <- replicate(n_sim, {
+  sample_data <- rpois(n, lambda)
+  var(sample_data)
+})
+hist(s2_estimates, main = "Sampling Distribution of S² (Estimator for λ)",
+     xlab = "S²", breaks = 20, col = "lightgreen")
+```
+
+c. Compare the two estimators. Would you prefer one over the other? Why?
+
+```{r}
+mean_x_bar <- mean(x_bar_estimates)
+mean_s2 <- mean(s2_estimates)
+bias_x_bar <- mean_x_bar - lambda
+bias_s2 <- mean_s2 - lambda
+var_x_bar <- var(x_bar_estimates)
+var_s2 <- var(s2_estimates)
+cat("Mean of X̄:", mean_x_bar, " Bias of X̄:", bias_x_bar, " Variance of X̄:", var_x_bar, "\n")
+cat("Mean of S²:", mean_s2, " Bias of S²:", bias_s2, " Variance of S²:", var_s2, "\n")
+```
+
+> In comparing the two estimators \(\bar{X}\) and \(S^2\) for \(\lambda\), we find that \(\bar{X}\) has a mean of approximately 19.9652, with a small negative bias of -0.0348, and a variance of 1.410973. Meanwhile, \(S^2\) has a mean of approximately 20.07798, with a slightly larger positive bias of 0.07798, and a much higher variance of 55.53039. Due to the significantly lower variance, \(\bar{X}\) is a more consistent and reliable estimator for \(\lambda\) than \(S^2\). Therefore, \(\bar{X}\) is preferable as it provides estimates closer to the true parameter value with less variability.
+
+d. What about a linear combination of the two variables? Could you construct an estimator of $\lambda$ of the form $a\bar{X} + bS^2$ that would be better than using either of them by themselves? 
+
+```{r}
+lambda <- 20
+n <- 15
+n_sim <- 1000
+a_values <- seq(0, 1, by = 0.01)
+get_variance <- function(a) {
+  b <- 1 - a
+  var_x_bar <- lambda / n
+  var_s2 <- (2 * lambda^2) / (n - 1)
+  a^2 * var_x_bar + b^2 * var_s2
+}
+variances <- sapply(a_values, get_variance)
+optimal_a <- a_values[which.min(variances)]
+optimal_b <- 1 - optimal_a
+optimal_variance <- min(variances)
+cat("Optimal a:", optimal_a, "\n")
+cat("Optimal b:", optimal_b, "\n")
+cat("Minimum Variance of Combined Estimator:", optimal_variance, "\n")
+```
+
+> The combined estimator \(0.98\bar{X} + 0.02S^2\) provides a more efficient estimate of \(\lambda\) (lower variance) than using either \(\bar{X}\) or \(S^2\) independently, confirming that a linear combination can be better.
+
+## Problem \#4: The Standard Error of $\bar{X}$<small>(8 pts; 2 pts each)</small>
+
+What would be the required sample size $n$ so that the standard error of $\bar{X}$ (i.e. $SD(\bar{X})$) would be 2 (or just under 2) for the following populations:
+
+a. $Normal(1000, 10^2)$
+
+- For a normal distribution, the standard deviation \( \sigma \) is given directly. Here, \( \sigma = 10 \).
+- Substituting into the formula:
+\[
+n = \left(\frac{10}{2}\right)^2 = 25
+\]
+So, the required sample size \( n \) is 25.
+
+b. $Pois(75)$
+
+- For a Poisson distribution with mean \( \lambda = 75 \), the standard deviation is \( \sigma = \sqrt{\lambda} = \sqrt{75} \).
+- Substituting into the formula:
+\[
+n = \left(\frac{\sqrt{75}}{2}\right)^2 = \frac{75}{4} = 18.75
+\]
+Since \( n \) must be an integer, we round up to 19.
+
+c. $Binom(200, .35)$
+
+- For a binomial distribution with parameters \( n = 200 \) and \( p = 0.35 \), the variance is \( \sigma^2 = np(1 - p) \). Thus, \( \sigma = \sqrt{200 \times 0.35 \times 0.65} \).
+- Substituting into the formula:
+\[
+n = \left(\frac{\sqrt{200 \times 0.35 \times 0.65}}{2}\right)^2
+\]
+Calculating the inside:
+\[
+\sigma^2 = 200 \times 0.35 \times 0.65 = 45.5
+\]
+\[
+n = \left(\frac{\sqrt{45.5}}{2}\right)^2 = \frac{45.5}{4} = 11.375
+\]
+
+d. $exp(.05)$
+
+- For an exponential distribution with rate parameter \( \lambda = 0.05 \), the mean is \( 1/\lambda = 20 \) and the standard deviation is also \( 1/\lambda = 20 \).
+- Substituting into the formula:
+\[
+n = \left(\frac{20}{2}\right)^2 = 100
+\]
+So, the required sample size \( n \) is 100.

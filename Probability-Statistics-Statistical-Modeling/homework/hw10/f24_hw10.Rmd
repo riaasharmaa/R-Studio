@@ -1,0 +1,376 @@
+---
+title: "Homework 10"
+author: "Ria Sharma"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,eval=T,message=F,warning=F,fig.align='center')
+library(tidyverse)
+```
+
+## Problem 1) More regression with `mtcars` (6 points, 1pt each)
+
+In lecture, we worked briefly with the `mtcars` data set.
+Let's get more regression practice by working with it some more.
+
+### a) background
+
+Run `?mtcars` in the console (please __do not__ add it to this `Rmd` file) and briefly read the help page.
+Specifically, take note of the following:
+
+1. What is the source of this data?
+
+> Source of the data: The mtcars dataset comes from the 1974 issue of Motor Trend magazine. It contains data about different car models.
+
+2. What is this data set measuring (i.e., what was the response variable in the original study, at least based on the brief description in the R documentation)?
+
+> Response variable in the original study: The response variable in the study was miles per gallon (mpg), which measures fuel efficiency.
+
+3. What predictors are available and what do they mean?
+
+> Predictors available:
+> cyl: Number of cylinders in the engine.
+> disp: Displacement (engine capacity) in cubic inches.
+> hp: Gross horsepower.
+> drat: Rear axle ratio.
+> wt: Weight of the car in 1000 lbs.
+> qsec: 1/4 mile time (seconds to complete a quarter-mile).
+> vs: Engine shape (0 = V-engine, 1 = straight engine).
+> am: Transmission type (0 = automatic, 1 = manual).
+> gear: Number of forward gears.
+> carb: Number of carburetors.
+
+
+You may want to also run `head(mtcars, 10)` or `View(mtcars)` to inspect the data frame briefly before moving on.
+
+```{r}
+head(mtcars, 10)
+knitr::kable(head(mtcars, 10))
+```
+
+### b) Fitting a model
+
+Use `lm` to run a regression of `mpg` on a few predictors in the data frame (choose two or three that you think would make a good model -- don't use all ten; we'll talk about why in later lectures). Save your fitted model as an object called `lm.mtcars`.
+Make sure to include `data = mtcars` as a keyword argument to `lm` so that R knows what data frame to use.
+
+Briefly inspect the residuals plot by running `plot(lm.mtcars,ask=F,which=1:2)`.
+What do you observe, and what does it mean?
+
+```{r}
+lm.mtcars <- lm(mpg ~ wt + hp + cyl, data = mtcars)
+plot(lm.mtcars, ask = FALSE, which = 1:2)
+```
+
+> Observation: In the Residuals vs. Fitted plot, the residuals show a slight curved pattern, indicating potential non-linearity in the relationship between mpg and the predictors (wt, hp, and cyl). Additionally, outliers like the Chrysler Imperial are evident, with large residuals. The Q-Q plot shows that residuals are approximately normal, but the tails deviate slightly, suggesting extreme residuals for a few points (e.g., Toyota Corolla and Chrysler Imperial).
+
+> What It Means: The curved pattern in the residuals suggests the model may not fully capture the relationship between mpg and the predictors, likely due to non-linearity. The deviations in the Q-Q plot and outliers could influence the model fit. To address these issues, consider transformations (e.g., log or polynomial terms) or investigate the impact of outliers further.
+
+### c) Interpreting the model
+
+View the summary of your model by uncommenting and running the code below.
+
+```{r}
+summary(lm.mtcars)
+```
+
+Pick one of your predictors and give an interpretation of the estimate and standard error for its coefficient.
+Be careful in your wording of the interpretation.
+
+> Interpretation of the wt Coefficient:
+
+> Estimate for wt (-3.16697): For every additional 1000 lbs of car weight, the mpg decreases by approximately 3.17 units, holding all other variables (hp and cyl) constant.
+
+> Standard Error (0.74058): This indicates the uncertainty in the estimate. A relatively small standard error compared to the coefficient suggests the estimate is precise.
+
+Which coefficients are statistically significantly different from zero? How do you know?
+
+> Statistical Significance:
+
+> Statistically Significant Coefficients: The p-value for wt is 0.000199, which is less than 0.05, making it statistically significantly different from zero.
+
+> Non-Significant Coefficients: The p-values for hp (0.140015) and cyl (0.098480) are greater than 0.05, indicating they are not statistically significant at the 5% level.
+
+> The predictor wt has a significant impact on mpg, while hp and cyl do not make statistically significant contributions to the model at this level of significance.
+
+### d) Interpreting residuals
+
+What is the Residual Standard Error (RSE) for this model? How many degrees of freedom does it have?
+
+> RSE: The Residual Standard Error for this model is 2.512. This indicates the average deviation of the observed mpg values from the values predicted by the model, measured in the same units as mpg.
+Degrees of Freedom: The model has 28 degrees of freedom, calculated as n−k−1, where n is the number of observations, and k is the number of predictors (3 in this case).
+
+What is the value of $R^2$ for this model? (__Hint:__ look at the output of `summary`) Give an interpretation of this value.
+
+> $R^2$: The $R^2$ value for this model is 0.8431.
+
+> Interpretation: This means that approximately 84.31% of the variation in mpg can be explained by the predictors (wt, hp, and cyl). The remaining 15.69% of the variation is due to other factors or random error not captured by the model.
+
+> This $R^2$ value suggests a strong fit, indicating that the model explains a substantial portion of the variability in fuel efficiency.
+
+### e) Adjusted $R^2$
+
+Briefly read about the adjusted $R^2$ [here](https://www.statisticshowto.com/probability-and-statistics/statistics-definitions/adjusted-r2/).
+What is the adjusted $R^2$ of this model and how does this differ from the usual $R^2$ value? (__Hint:__ again, look at the output of `summary`).
+
+> Adjusted $R^2$: The adjusted $R^2$ value for this model is 0.8263.
+
+> How it differs from the usual $R^2$: 
+
+> Regular: Measures the proportion of variability in the response variable explained by the predictors, but it can artificially increase as more predictors are added, even if they don't contribute to the model.
+
+> Adjusted: Accounts for the number of predictors in the model and penalizes the addition of unnecessary predictors. It only increases if the added predictors improve the model more than would be expected by chance.
+
+> Interpretation: The adjusted $R^2$ of 0.8263 is slightly lower than the regular $R^2$ of 0.8431, reflecting the penalty for including three predictors (wt, hp, and cyl). This indicates that the predictors collectively explain a strong portion of the variability in mpg, but not all predictors may be equally effective.
+
+### f) CIs for coefficients
+
+Read the documentation for the `confint` function, and use it to generate $95\%$ confidence intervals for the coefficients of your model.
+Give an interpretation of these confidence intervals.
+
+```{r}
+confint(lm.mtcars, level = 0.95)
+```
+
+> Intercept (35.09, 42.41): We are 95% confident that the true average mpg for a car with wt = 0, hp = 0, and cyl = 0 falls between 35.09 and 42.41. However, this value has limited practical meaning as such a car does not exist.
+
+> wt (-4.68, -1.65): We are 95% confident that for every additional 1000 lbs of weight, the true decrease in mpg falls between 1.65 and 4.68 units, holding all other variables constant. Since the interval does not include zero, wt has a statistically significant negative effect on mpg.
+
+> hp (-0.042, 0.006): We are 95% confident that for every additional unit of horsepower, the true change in mpg is between a decrease of 0.042 units and an increase of 0.006 units, holding all other variables constant. Since the interval includes zero, the effect of hp is not statistically significant.
+
+> cyl (-2.07, 0.19): We are 95% confident that for each additional cylinder, the true change in mpg is between a decrease of 2.07 units and an increase of 0.19 units, holding all other variables constant. Since the interval includes zero, the effect of cyl is not statistically significant.
+
+> We are 95% confident that wt has a significant negative impact on mpg, as its confidence interval does not include zero. However, the effects of hp and cyl are not statistically significant at the 95% confidence level, as their intervals include zero.
+
+## Problem 2) the `cats` data set (8 points; 2pt each)
+
+The `cats` data set, included in the `MASS` library, contains data recorded from 144 cats.
+Each row of the data set contains the body weight (`Bwt`, in kgs), heart weight (`Hwt`, in grams) and the sex (`Sex`, levels `'F'` and `'M'`) for one of the cats in the data set.
+
+```{r}
+library(MASS)
+head(cats)
+```
+
+### a) plotting the data
+
+Create a scatter plot showing heart weight on the y-axis and body weight on the x-axis.
+Ignore the `Sex` variable in this plot.
+
+Briefly describe what you see. Is there a clear trend in the data?
+
+```{r}
+library(ggplot2)
+ggplot(cats, aes(x = Bwt, y = Hwt)) +
+  geom_point() +
+  labs(
+    title = "Heart Weight vs Body Weight in Cats",
+    x = "Body Weight (kg)",
+    y = "Heart Weight (g)"
+  ) +
+  theme_minimal()
+```
+
+> The scatter plot shows that heart weight (Hwt) generally increases as body weight (Bwt) increases. The points are fairly well-distributed along a rising pattern, with some variability, but no major outliers or unexpected clusters.
+
+> There is a clear positive trend in the data, indicating a strong linear relationship between body weight and heart weight. Larger cats (higher Bwt) tend to have heavier hearts (higher Hwt), suggesting that body weight is a significant factor in predicting heart weight.
+
+### b) fitting a linear model
+
+Fit a linear regression model to predict cat heart weight from cat body weight (and using an intercept term, of course).
+
+```{r}
+lm.cats <- lm(Hwt ~ Bwt, data = cats)
+summary(lm.cats)
+```
+
+Examine the coefficients of your fitted model.
+What is the coefficient for the `Bwt` variable?
+
+> From the output, the coefficient for Bwt is 4.0341.
+
+Interpret this coefficient-- a unit change in body weight yields how much change in heart weight?
+
+> The coefficient for Bwt means that for every 1 kg increase in body weight, the heart weight is expected to increase by approximately 4.0341 grams, assuming all other factors remain constant. This indicates a strong positive relationship between body weight and heart weight in cats. Larger cats, as measured by body weight, tend to have proportionally heavier hearts.
+
+### c) back to plotting
+
+Create the same plot from Part a above, but this time color the points in the scatter plot according to the `Sex` variable.
+You may use either `ggplot2` or the built-in R plotting tools, though I would recommend the former, for this.
+
+```{r}
+library(ggplot2)
+ggplot(cats, aes(x = Bwt, y = Hwt, color = Sex)) +
+  geom_point() +
+  labs(
+    title = "Heart Weight vs Body Weight in Cats by Sex",
+    x = "Body Weight (kg)",
+    y = "Heart Weight (g)"
+  ) +
+  theme_minimal()
+```
+
+You should see a clear pattern. Describe it. A sentence or two is fine here.
+
+> In the scatter plot, male cats (blue) generally have higher body weights and heavier hearts than female cats (red). The data shows a distinct separation between the sexes, with males clustering at higher values for both variables. This suggests that sex plays a role in determining both body and heart weight in cats.
+
+### d) adding `Sex` and an interaction
+
+From looking at the data, it should be clear that the `Sex` variable has explanatory power in predicting heart weight, but it is also very correlated with body weight.
+
+Fit a new linear regression model, still predicting heart weight, but this time including both body weight and sex as predictors *and* an interaction term between body weight and sex.
+Take note of how R assigns `Sex` a dummy encoding.
+
+Examine the outputs of your model.
+In particular, note the coefficients of `Sex` and the interaction between `Bwt` and `Sex`.
+Are both of these coefficients statistically significantly different from zero?
+How do you interpret the interaction term?
+
+```{r}
+lm.cats.interaction <- lm(Hwt ~ Bwt * Sex, data = cats)
+summary(lm.cats.interaction)
+```
+
+> The coefficients for both SexM and the interaction term Bwt:SexM are statistically significant (p = 0.045 and p = 0.047, respectively). The SexM coefficient of -4.1654 indicates that male cats, on average, have a heart weight that is 4.1654 grams lower than female cats at the baseline body weight.
+
+> The interaction term (Bwt:SexM) shows that the relationship between body weight and heart weight differs by sex. For every 1 kg increase in body weight, heart weight increases by 2.6364 grams for female cats and by 4.3127 grams for male cats, indicating a stronger effect of body weight on heart weight for males.
+
+## Problem 3) Quantitative and Categorical Predictors (8 points)
+
+(This problem is based on a plot from [The behavior of different clays subjected to a fast-drying cycle for traditional ceramic manufacturing](https://doi.org/10.1016/j.jksues.2022.05.003), but the data has been simulated)
+
+An experiment was conducted on three types of **material**: Plastic clay, Sandy clay and claystone. The **plastic deformation** (\%) was measured at various **moisture** (\%) levels. Data is found in the `clay_sample.csv` file. Plastic deformation is denoted `pd` in the dataset.
+
+### a) Fit the model (4 points)
+Create a linear model model predicting plastic deformation from moisture. Include material and the interaction between material and moisture. 
+
+```{r}
+clay_data <- read.csv("clay_sample.csv")
+lm_clay <- lm(pd ~ moisture * material, data = clay_data)
+```
+
+a.i. Output the standard model summary using `summary()`. 
+  
+```{r}
+summary(lm_clay)
+```
+
+a.ii. Interpret the $R^2$ statistic value in one sentence.
+
+> The $R^2$ value of 0.8776 indicates that approximately 87.76% of the variation in plastic deformation (pd) is explained by the model, which includes moisture, material, and their interaction.
+
+a.iii. Which material represents the baseline?
+
+> The baseline material is claystone, as it is not explicitly listed in the coefficients and serves as the reference level in the dummy encoding of the categorical variable material.
+
+a.iv. Explain how the residual standard error degrees of freedom is related to sample size and the model size.
+
+> The residual standard error's degrees of freedom is determined by the sample size and the number of predictors in the model. It is calculated as n−k−1, where n is the total sample size, k is the number of predictors (including main effects and interaction terms), and 1 accounts for the intercept. In this model, with a sample size of 70 and 5 predictors, the degrees of freedom is 70−5−1=64. This value represents the remaining observations available to estimate variability after accounting for the effects of the predictors included in the model. As more predictors are added, fewer degrees of freedom remain for estimating residual variability.
+
+### b) Interpret coefficient 1 (1 pt)
+Provide an interpretation for the value of the coefficient of moisture, and comment on its significance.
+
+> The coefficient for moisture is 7.7928, meaning that for every 1% increase in moisture, the plastic deformation (pd) increases by approximately 7.79%, holding the material constant. This coefficient is statistically significant, as indicated by the very small p-value (p < 0.001), suggesting that moisture has a strong and positive effect on plastic deformation.
+
+### c) Interpret coefficient 2 (1 pt)
+Provide an interpretation for the value of the coefficient of one of the materials, and comment on its significance.
+
+> The coefficient for plastic clay is 23.9557, meaning that, compared to the baseline material (claystone), plastic clay has a 23.96% higher plastic deformation at baseline moisture levels. However, this coefficient is not statistically significant at the 5% level (p = 0.076), indicating that this difference may not be reliably attributed to material type alone.
+
+### d) Interpret coefficient 3 (1 pt)
+Provide an interpretation for the value of the coefficient of one of the interaction terms, and comment on its significance.
+
+> The coefficient for the interaction term moisture
+clay is -3.5950, meaning that the effect of moisture on plastic deformation is reduced by 3.60% for plastic clay compared to claystone. This coefficient is statistically significant (p < 0.001), suggesting that the relationship between moisture and plastic deformation differs meaningfully between plastic clay and the baseline material, claystone.
+
+### e) Assess assumptions (1 pt)
+Finally display the first two diagnostic plots using `plot(<YOUR MODEL>, which=1:2)` and discuss three of the assumptions of the linear model: normality of error term, linearity and the relationship, and constant variance of the error term. You do not have to do any more modeling after this step, but comment about what you *might* want to do to improve the model.
+
+```{r}
+plot(lm_clay, which = 1:2)
+```
+
+> Normality of Error Term: The Q-Q plot shows that most points align closely with the diagonal line, indicating that the residuals are approximately normally distributed. However, slight deviations at the tails suggest some non-normality, possibly caused by outliers or unmodeled complexity in the data.
+
+> Linearity of the Relationship: The Residuals vs. Fitted plot shows a curved pattern, indicating a potential violation of the linearity assumption. This suggests that the relationship between moisture and plastic deformation might not be fully captured by the linear model. Including polynomial terms or transformations for moisture could address this.
+
+> Constant Variance of the Error Term (Homoscedasticity): The spread of residuals in the Residuals vs. Fitted plot appears to increase slightly as fitted values increase. This suggests heteroscedasticity, where the variance of residuals is not constant. Applying a transformation to the response variable (e.g., log or square root) might help stabilize the variance.
+
+> To improve the model, polynomial terms for moisture could be included to better capture non-linear relationships. Transformations, such as taking the logarithm of pd, may help address heteroscedasticity and stabilize the variance of residuals. Additionally, investigating and potentially removing or adjusting for outliers could improve the model's performance by mitigating their impact on normality and variance patterns.
+
+## Problem 4) Using Multiple regression to fit nonlinear data (8 points; 2 pt each)
+
+Open the dataset `multData.csv`. This data set consists of three predictor variables, simply named `X1`, `X2` and `X3`. The response variable is `Y`. In this problem you will explore how to use the multiple regression model to model nonlinear relationships.
+
+### a) the first model
+
+First we will explore the relationship between $Y$ and the first two predictors $X1$ and $X2$. Fit the linear model
+
+$$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \epsilon$$
+Interpret the coefficients of both X1 and X2. 
+
+```{r}
+mult_data <- read.csv("multData.csv")
+lm_mult <- lm(Y ~ X1 + X2, data = mult_data)
+summary(lm_mult)
+```
+
+> Interpretation of coefficients:
+
+> Intercept (β0): The intercept is 948.5316, meaning that when both X1 and X2 are 0, the predicted value of Y is 948.53.
+
+> Coefficient for X1 (β1): The coefficient for X1 is -12.6318. This means that for every one-unit increase in X1, Y decreases by approximately 12.63 units, holding X2 constant. This is statistically significant (p < 2e-16).
+
+> Coefficient for X2 (β2): The coefficient for X2 is -35.1420. This means that for every one-unit increase in X2, Y decreases by approximately 35.14 units, holding X1 constant. This is also statistically significant (p = 3.42e-09).
+
+### b) Investigating interaction of quantitative predictors
+
+Next introduce an interaction term to the model
+$$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_1\cdot X_2 + \epsilon$$
+
+Fit the model and view the summary output. Has this improved the model fit? Did anything surprising happen to the coefficients? Try to explain what happened.
+
+```{r}
+lm_mult_interaction <- lm(Y ~ X1 * X2, data = mult_data)
+summary(lm_mult_interaction)
+```
+
+> The Adjusted $R^2$ has increased slightly from 0.9824 in the initial model to 0.9847, indicating a small improvement in the model fit after adding the interaction term. The Residual Standard Error (RSE) decreased from 10.29 to 9.589, further confirming a better fit.
+
+> The coefficients for X1 and X2 changed significantly after including the interaction term. The coefficient for X1 switched from -12.63 to 19.05, changing from a negative to a positive effect. The coefficient for X2 reduced from -35.14 to 6.77 and lost statistical significance (p = 0.66265). The interaction term (X1:X2) is statistically significant (p = 0.00669) with a coefficient of -2.0441, indicating that the relationship between X1 and Y depends on X2, and vice versa.
+
+> The inclusion of the interaction term altered the interpretation of X1 and X2. The coefficients for X1 and X2 now reflect their effects on Y when the other predictor is zero. The interaction term captures the combined effect of X1 and X2, showing that their relationship with Y is not independent but interdependent. This change highlights the importance of interactions when predictors influence the response variable jointly.
+
+### c) Introducing the last predictor
+
+Next fit a model that introduces the `X3` variable. 
+
+$$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_1\cdot X_2  + \beta_4 X_3 \epsilon$$
+Has the model fit improved? In what way (Justify your answer)? 
+
+```{r}
+lm_mult_interaction_X3 <- lm(Y ~ X1 * X2 + X3, data = mult_data)
+summary(lm_mult_interaction_X3)
+```
+
+> The model fit has significantly improved after introducing the predictor X3. The Adjusted R^2 increased from 0.9847 in the previous model to 0.9998, indicating that the model now explains nearly all the variability in Y. Additionally, the Residual Standard Error (RSE) decreased from 9.589 to 1.031, showing that the predictions are much closer to the observed values.
+
+> The coefficient for X3 (95.44) is highly significant (p < 2e-16), demonstrating that X3 is a critical predictor for explaining Y. Including X3 significantly enhances the model's ability to capture the variability in the response variable, suggesting that it provides important explanatory power that was not captured by X1, X2, or their interaction.
+
+
+### d) Considering higher order terms
+
+Finally explore higher order terms for the X3 variable: Introduce $X3^2$, $X3^3$ etc and determine if any of these higher order terms are justified in the model. Explain your reasoning and present your final model. Look at the diagnostic plots and discuss whether the assumptions of the multiple regression model seem to be justified.
+
+```{r}
+lm_mult_higher_order <- lm(Y ~ X1 * X2 + X3 + I(X3^2) + I(X3^3), data = mult_data)
+summary(lm_mult_higher_order)
+par(mfrow = c(2, 2))
+plot(lm_mult_higher_order)
+```
+
+> The quadratic term (X3^2) is not statistically significant (p = 0.431) and does not meaningfully improve the model. The cubic term (X3^3) is marginally significant (p = 0.093) but adds limited explanatory power. Given the high Adjusted R^2 of the simpler models and the minimal impact of these higher-order terms, including them would overcomplicate the model. Therefore, higher-order terms are not justified for inclusion.
+
+> The final model retains X1, X2, X3, and the interaction term X1:X2. This model achieves an Adjusted R^2 of 0.9998 and a Residual Standard Error of 1.031, providing a strong fit without unnecessary complexity. This simpler model is both interpretable and highly predictive, making it an ideal choice.
+
+> The diagnostic plots indicate that the multiple regression assumptions are satisfied. The Q-Q plot confirms that residuals are approximately normally distributed. The Residuals vs. Fitted plot shows no clear curvature, supporting the linearity assumption. Additionally, the Scale-Location plot suggests constant variance of residuals, satisfying the homoscedasticity assumption. Although a few points (e.g., observations 1 and 37) show high leverage, their Cook's distances suggest they do not overly influence the model.

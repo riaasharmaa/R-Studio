@@ -1,0 +1,276 @@
+---
+title: "Homework 9"
+author: "Ria"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      warning = FALSE, error = TRUE, fig.height = 3)
+library(tidyverse)
+library(kableExtra)
+library(broman)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+theme_set(theme_minimal())
+```
+
+\newcommand{\E}{\mathsf{E}}
+\newcommand{\Var}{\mathsf{Var}}
+\newcommand{\SD}{\mathsf{SD}}
+\renewcommand{\prob}{\mathsf{P}}
+
+## Assignment 9
+
+### Preliminaries
+
+- Directories
+    - COURSE/homework/
+    - COURSE/homework/hw09/
+    - COURSE/data/
+    - COURSE/scripts/
+- Files
+  - COURSE/homework/hw09/hw09.Rmd
+  - COURSE/data/chimpanzees.csv
+  - COURSE/scripts/viridis.R
+  - COURSE/scripts/ggprob.R
+
+### Data
+
+- The data are in the file `chimpanzee.csv`.    
+- These data are artificial, but created to match details from a 2011 PNAS paper on chimpanzee prosocial choice.  
+- See the [Course Notes and Case Studies Chapter 18](https://bookdown.org/bret_larget/stat-240-case-studies/chimpanzees-and-prosocial-choice.html) for background on the data.
+
+### Aims
+
+- Practice the normal distribution and the central limit theorem
+- Practice inference on proportions
+
+## Problems
+
+#### 1
+How many standard deviations is the 0.72 quantile of a $N(\mu, \sigma)$ distribution above the mean?
+In other words, if $x$ is the 0.72 quantile,
+for what value $z$ does $x = \mu + z\sigma$?
+
+```{r}
+z_score <- qnorm(0.72)
+z_score
+```
+
+#### 2
+Heights in a population of American adult males are approximately normal with a mean of 69.7 inches and a standard deviation of 3.1 inches.
+  
+-2a. What proportion of American adult males are taller than two meters tall? (One meter equals 39.37 inches.)
+
+```{r}
+mean_height <- 69.7  
+sd_height <- 3.1  
+height_threshold <- 2 * 39.37  
+prop_taller <- 1 - pnorm(height_threshold, mean_height, sd_height)
+prop_taller
+```
+
+-2b. What is the 95th percentile of American adult male height?
+
+```{r}
+percentile_95 <- qnorm(0.95, mean_height, sd_height)
+percentile_95
+```
+
+-2c. If we took a random sample of 250 men, how likely is it that the sample mean of their heights would be between 69.5 and 70.5 inches?
+
+```{r}
+n = 250
+se <- sd_height / sqrt(n)
+lower_bound <- 69.5
+upper_bound <- 70.5
+prob_between <- pnorm(upper_bound, mean_height, se) - 
+                pnorm(lower_bound, mean_height, se)
+prob_between
+```
+
+#### 3
+Suppose you are playing a coin flipping game with a friend, where you suspect the coin your friend provided is not a fair coin.  In fact, you think the probability the coin lands heads is less than 0.5.  To test this, you flip the coin 100 times and observe the coin lands heads 35 times.
+  
+-3a. If you assume the coin is fair (i.e., the probability of the coin landing heads is 0.5), what is the probability of observing 35 heads or fewer, calculated using an exact model?
+
+```{r}
+n_flips <- 100
+heads_observed <- 35
+p_head <- 0.5 
+exact_prob <- pbinom(heads_observed, n_flips, p_head)
+exact_prob
+```
+
+-3b. Calculate the previous probability, but use a normal approximation to achieve a numerical value. What is the relative error in this approximation? (Relative error is the absolute difference divided by the exact value, times 100%.)
+
+```{r}
+mean_approx <- n_flips * p_head
+sd_approx <- sqrt(n_flips * p_head * (1 - p_head))
+normal_prob <- pnorm(heads_observed + 0.5, mean_approx, sd_approx)
+relative_error <- (abs(exact_prob - normal_prob) / exact_prob) * 100
+relative_error
+```
+
+-3c. How small would $p$ need to be (rounded to the nearest 0.01) for the probability of observing 35 or fewer heads to be at least 0.05?
+
+```{r}
+df = tibble(
+  p = seq(0.01, 1, by = 0.01),
+  prob = pbinom(35, 100, p)
+) %>% 
+  filter(prob >= 0.05) %>% 
+  arrange(desc(p)) %>% 
+  head(1) %>% 
+  print()
+pbinom(35, 100, 0.43)
+pbinom(35, 100, 0.44)
+```
+> p should be 0.43 or lower there should be at least a 5% chance of getting 35 or fewer heads in 100 flips. When p is exactly 0.43, the chance of this happening is about 6.39%.
+
+-3d. Does it seem plausible that the coin is fair? Briefly explain.
+
+> It's unlikely to be a fair coin. The observed data of 35 heads in 100 flips would be quite rare if the coin were fair, so the coin probably favors tails.
+
+#### 4
+This problem uses the chimpanzee prosocial experiment data we have been using in lecture. For this problem, we want to create a data summary that pools together all trials with a partner and all trials without a partner as two separate experimental conditions.
+
+The data summary should have two rows,
+one for the summary of trials *with a partner* and one for the trials *without a partner*.
+  
+Do the following:
+
+- Read in the `chimpanzee.csv` data file.
+
+- Create the summary table with columns:
+  - `partner` with values "partner" or "no partner";
+  - `prosocial` with the combined number of prosocial choices made by all chimpanzees for the corresponding experimental condition;
+  - `selfish` with the combined number of selfish choices made by all chimpanzees for the corresponding experimental condition;
+  - `n` with the combined total number of trials for the corresponding experimental condition; 
+  - `p_prosocial` with the combined proportion of prosocial choices made for the corresponding experimental condition;
+  
+- Print the entire table
+
+```{r}
+chimpanzee = read_csv("../../data/chimpanzee.csv")%>% 
+  mutate(partner = case_when(
+    partner == "none" ~ "no partner",
+    TRUE ~ "partner"
+  )) %>% group_by(partner) %>% summarize(prosocial=sum(prosocial), selfish=sum(selfish), n=selfish+prosocial, p_prosocial=(prosocial/n))
+print(chimpanzee) 
+```
+
+
+
+#### 5
+Use the data from the previous problem only for trials with a partner.
+
+-5a. Use the Agresti-Coull method to construct a 95% confidence interval for $p_{\text{partner}}$, the long-run probability that the these chimpanzees make the pro-social choice in the experimental setting.
+
+```{r}
+X <- 359  
+n <- 610  
+X_tilde <- X + 2
+n_tilde <- n + 4
+p_tilde <- X_tilde / n_tilde
+SE <- sqrt(p_tilde * (1 - p_tilde) / n_tilde)
+ME <- 1.96 * SE
+CI_lower <- p_tilde - ME
+CI_upper <- p_tilde + ME
+CI_lower
+CI_upper
+```
+
+-5b. Interpret this confidence interval in context.
+
+> The confidence interval suggests that we can be 95% sure that the actual probability of partnered chimpanzees making a prosocial choice falls between 54.9% and 62.7%. This range gives us a likely estimate for this behavior in the entire population of chimpanzees, based on our sample.
+
+
+
+
+#### 6
+Define $p_{\text{partner}}$ and $p_{\text{no partner}}$ to be the long-run probabilities that chimpanzees make the prosocial choices with and without a partner, respectively, in the experimental conditions. Note that these parameter definitions implicitly assume that all trials are independent and that the identities of the chimpanzees and their partners do not affect the prosocial trial probabilities. These assumptions could and should be examined, but complete these problems as if the assumptions are accurate.
+
+-6a. Write a statistical model for the data, $X_1$ and $X_2$, the number of pro-social choices under the two conditions. (It may be helpful to copy and edit LaTeX syntax from the lecture notes if you want to make the knitted document look pretty, but plain text is also fine.)
+
+> p1 is the probability that a Chimpanzee makes the pro-social choice when there is a partner 
+> p2 is the probability that a Chimpanzee makes the pro-social choice when there is no partner
+
+-6b. Use the data summary in Problem 4 to construct a 95% confidence interval for  $p_{\text{partner}} - p_{\text{no partner}}$, using the Agresti-Coffe method for confidence intervals for differences in proportions.
+
+```{r}
+X1 <- 359 
+n1 <- 610  
+X2 <- 83  
+n2 <- 180 
+
+X1_adj <- X1 + 2
+n1_adj <- n1 + 4
+X2_adj <- X2 + 2
+n2_adj <- n2 + 4
+
+p1_adj <- X1_adj / n1_adj
+p2_adj <- X2_adj / n2_adj
+
+SE_diff <- sqrt((p1_adj * (1 - p1_adj) / n1_adj) + (p2_adj * (1 - p2_adj) / n2_adj))
+
+ME <- 1.96 * SE_diff
+
+CI_lower <- (p1_adj - p2_adj) - ME
+CI_upper <- (p1_adj - p2_adj) + ME
+
+CI_lower
+CI_upper
+```
+
+-6c Interpret this confidence interval in context, following model language in lecture notes.
+
+> The 95% confidence interval for the difference in prosocial choices between chimpanzees with a partner and those without a partner is estimated to be between 4.41% and 20.78%. This range suggests with 95% confidence that the true difference in the likelihood of making prosocial choices, considering the presence or absence of a partner, falls within this interval. This interval does not include zero, which indicates there is a statistically significant difference between the two probabilities. 
+
+
+
+
+
+#### 7
+Using data and parameters definitions from previous problems, test the hypothesis that $p_{\text{partner}} = 0.5$ versus the two-sided alternative.
+
+- State null and alternative hypotheses.
+- Write the statistical model for $X_1$, the number of pro-social choices.
+- State the sampling distribution of $X_1$ if the null hypothesis is true.
+- Which possible outcomes of $X_1$ have evidence against the null hypotheses at least as strong as the observed data, $x_1 = 359$?
+- Calculate and report a p-value.
+- Following style from lecture examples, write an interpretation of the results in context without statistical jargon, summarizing the statistical evidence to support your conclusions in a short phrase within a pair of parentheses.
+
+> H0: p_partner = 0.5, Ha: p_partner != 0.5 The hypothesis we're testing is that chimpanzees make the prosocial choice 50% of the time when a partner is present.
+
+> X1 ~ Binomial(610, p_partner) where p_partner is the probability of making the prosocial choice in the presence of a partner. The data follows a binomial distribution with 610 trials.
+
+> If the null hypothesis is true we expect there to be 610*0.5 prosocial choices = 305 with a standard deviation of 12.35
+
+> The observed data of 359 prosocial choices which is 4.37 standard deviations away from the mean expected value of 305. This means that any outcomes that are greater than 359 or less than 251 (the same number of standard deviations away but below the mean) have evidence against the null as strong as the observed data
+
+> The calculated p-value is approximately 
+1.41 * 10^-5 (or 0.00141%).
+
+```{r}
+x1_observed <- 359
+n1 <- 610
+p_null_hypothesis <- 0.5
+p_value <- binom.test(x1_observed, n1, p_null_hypothesis, alternative = "two.sided")$p.value
+p_value
+```
+
+> The likelihood that the observed number of prosocial choices made by chimpanzees could occur by chance alone when a partner is present is extremely low (strong evidence, p-value ≈ 0.00141%). This suggests that chimpanzees' choices are likely influenced by the presence of a partner and are not random under the experimental conditions. ​
+
+
+
+#### 8
+The previous statistical inferences assume a binomial model for the observed number of prosocial choices for trials with and without a partner.
+
+State one criticism where reality may differ from the assumptions, potentially leading to misleading conclusions.
+(What is an example of an assumption of the binomial model which, in the given context, is questionable?)
+
+> A key assumption of the binomial model is that each trial is independent, but in practice, a chimpanzee's choice could be influenced by previous trials or by their relationship with their partner. This interconnectedness can affect the outcome, challenging the model's assumption and potentially leading to inaccurate conclusions.

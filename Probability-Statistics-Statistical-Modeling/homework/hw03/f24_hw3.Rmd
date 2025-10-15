@@ -1,0 +1,203 @@
+---
+title: "Homework 3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,eval=T,message=F,warning=F,fig.align='center')
+library(tidyverse)
+```
+
+## 1. Independence of Events <small>(8 points, 2 points each)</small>
+
+A fair four-sided die (numbered 1,2,3 and 4) is rolled three times. Consider the following three events:
+
+A: "The sum is 6 or less"
+
+B: "The second roll is more than the first"
+
+C: "The sum is odd"
+
+D: "Exactly two of the rolls are the same"
+
+```{r}
+set.seed(123)
+rolls <- replicate(10000, sample(1:4, size = 3, replace = TRUE))
+event_A <- colSums(rolls) <= 6
+event_B <- rolls[2, ] > rolls[1, ]
+event_C <- colSums(rolls) %% 2 == 1
+event_D <- apply(rolls, 2, function(x) length(unique(x)) == 2)
+independence_checks <- list(
+  A_B = mean(event_A & event_B) == mean(event_A) * mean(event_B),
+  C_D = mean(event_C & event_D) == mean(event_C) * mean(event_D),
+  A_C = mean(event_A & event_C) == mean(event_A) * mean(event_C),
+  B_D = mean(event_B & event_D) == mean(event_B) * mean(event_D)
+)
+independence_checks
+```
+
+a. Are A and B independent?
+
+> No, A and B are not independent.
+
+b. Are C and D independent?
+
+> No, C and D are not independent.
+
+c. Are A and C independent?
+
+> No, A and C are not independent.
+
+d. Are B and D independent?
+
+> No, B and D are not independent.
+
+## 2. Stock Portfolio <small>(8 points, 2 points each)</small>
+
+Consider two stocks. Stock A has a mean annual return of 0.05 and a standard deviation of 0.01. Stock B has a mean annual return of 0.10 and a standard deviation of 0.04. Past data suggests that the prices have a correlation of -0.65.
+You have \$1000 to invest in a portfolio composed of these two stocks. 
+
+a. Suppose you invest \$500 in stock A and \$500 in stock B. What will be the expected return and the standard deviation of your portfolio (in dollars)? 
+*Hint:* $SD(aX+bY) = \sqrt{Var(aX+bY)}= \sqrt{a^2Var(X)+2abCov(X,Y)+b^2Var(Y)}$ and $Cov(X,Y)=\sigma_X \sigma_Y \rho_{XY}$
+
+```{r}
+mean_A <- 0.05  
+sd_A <- 0.01      
+mean_B <- 0.10   
+sd_B <- 0.04    
+cor_AB <- -0.65    
+cov_AB <- sd_A * sd_B * cor_AB
+total_investment <- 1000
+weight_A <- 0.5  
+weight_B <- 0.5  
+
+expected_return_percent <- weight_A * mean_A + weight_B * mean_B
+expected_return_dollars <- total_investment * expected_return_percent
+expected_return_dollars 
+portfolio_sd_percent <- sqrt(weight_A^2 * sd_A^2 + weight_B^2 * sd_B^2 + 2 * weight_A * weight_B * cov_AB)
+portfolio_sd_dollars <- total_investment * portfolio_sd_percent
+portfolio_sd_dollars 
+```
+
+b. Give an expression for the standard deviation for a portfolio investing $\$x$ in stock A and $\$1000-x$ in stock B. 
+
+```{r}
+portfolio_sd_x <- function(x) {
+  weight_A <- x / 1000        
+  weight_B <- (1000 - x) / 1000
+  sqrt(weight_A^2 * sd_A^2 + weight_B^2 * sd_B^2 + 2 * weight_A * weight_B * cov_AB)
+}
+```
+
+c. Find the value $x$ that minimizes this standard deviation. 
+```{r}
+optimal_x <- optimize(portfolio_sd_x, c(0, 1000))$minimum
+optimal_x 
+```
+
+d. What is the expected return and standard deviation (in dollars) for the portfolio split you chose in part c?
+```{r}
+optimal_weight_A <- optimal_x / 1000
+optimal_weight_B <- (1000 - optimal_x) / 1000
+optimal_expected_return_percent <- optimal_weight_A * mean_A + optimal_weight_B * mean_B
+
+optimal_expected_return_dollars <- total_investment * optimal_expected_return_percent
+optimal_expected_return_dollars
+
+optimal_portfolio_sd_dollars <- total_investment * portfolio_sd_x(optimal_x)
+optimal_portfolio_sd_dollars
+```
+
+## 3. Mousetrap: A Rube Goldberg Machine  <small>(5 points, 1 points each)</small>
+
+Consider the board game Mousetrap. When you trigger the trap, the ball needs to 
+
+1. roll down a **ramp**,
+2. be carried up by a **hammer**,
+3. roll  down another **ramp**,
+4. go down a bathtub **drain**,
+5. land on a **lever** which
+6. sends a diver into a **basin** which then
+7. causes the **trap** to descend.
+
+Suppose you can model the success of each component as independent Bernoulli random variables $X_1$ through $X_7$, where the probability of $X_i$ succeeding is $.94$ for each component. 
+
+a. What is the probability that the trap works correctly from beginning to end?
+
+```{r}
+p_success <- 0.94
+p_all_success <- p_success^7
+p_all_success
+```
+
+b. If you attempt the trap 15 times during a game, how many times do you expect it to work correctly from beginning to end?
+
+```{r}
+n_attempts <- 15
+expected_successes <- n_attempts * p_all_success
+expected_successes
+```
+
+c. Suppose you let the marble go: Let $Y$ be the number of components of the trap that work in a row. If one component fails, then you stop counting. Calculate the probability mass function of $Y$. *Hints: $Y$ can have values $0, 1, 2, 3, 4, 5, 6$ or $7$. This is like a Geometric r.v. except it does not have infinite support. How can you use this fact to determine the pmf? Be careful: what is a 'success' in this context?*
+
+```{r}
+pmf_Y <- function(k) {
+  if (k < 7) {
+    return((0.94^k) * (1 - 0.94))
+  } else {
+    return(0.94^7)
+  }
+}
+
+pmf_values <- sapply(0:7, pmf_Y)
+pmf_values
+```
+
+d. Calculate the expected value of $Y$ and its variance. 
+
+```{r}
+expected_Y <- sum(0:7 * pmf_values)
+expected_Y
+expected_Y2 <- sum((0:7)^2 * pmf_values)
+variance_Y <- expected_Y2 - expected_Y^2
+variance_Y
+```
+
+e. What is $P(Y = 6 | Y \geq 3)$?
+
+```{r}
+p_Y_ge_3 <- sum(pmf_values[4:8])
+p_Y_6_given_ge_3 <- pmf_values[7] / p_Y_ge_3
+p_Y_6_given_ge_3
+```
+
+## 4. Bayes Rule with forecasting <small>(9 points, 3 points each)</small>
+
+Madison, Wisconsin gets about 115 days of precipitation per year (we'll just call it rain for the remainder of this problem, even though it is often snow). On days when it ends up raining the forecast on Channel 3000 is correct (i.e. the morning forecast calls for rain) 93% of the time. On days where there is no rain the morning forecast correctly says there will be no rain 87% of the time. 
+
+a. Calculate the overall probability that a forecast on a randomly selected day is correct.
+
+```{r}
+P_rain <- 115 / 365           
+P_no_rain <- 1 - P_rain  
+P_forecast_rain_given_rain <- 0.93 
+P_forecast_no_rain_given_no_rain <- 0.87 
+
+P_correct <- P_forecast_rain_given_rain * P_rain + P_forecast_no_rain_given_no_rain * P_no_rain
+P_correct
+```
+
+b. If the weather from day to day is independent and the forecast accuracy from day to day is independent, then how many correctly forecasted days do you expect in a 365 day year? 
+
+```{r}
+expected_correct_days <- 365 * P_correct
+expected_correct_days
+```
+
+c. If the forecast calls for rain, what is the likelihood that it actually rains? In other words, find $P(\text{Rain} | \text{Forecast Rain})$.
+
+```{r}
+P_forecast_rain <- P_forecast_rain_given_rain * P_rain + (1 - P_forecast_no_rain_given_no_rain) * P_no_rain
+P_rain_given_forecast_rain <- (P_forecast_rain_given_rain * P_rain) / P_forecast_rain
+P_rain_given_forecast_rain
+```

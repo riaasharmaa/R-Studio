@@ -1,0 +1,213 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, error = TRUE)
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(purrr)
+library(stringr)
+library(ggplot2)
+library(readxl)
+library(kableExtra)
+library(viridisLite)
+library(lubridate)
+library(scales)
+```
+## Final Project Draft
+
+### Group Members
+Ria Sharma, Haley Bondoc, Ethan Gabriele, Jiaming Zhang
+
+### Introduction
+
+The global airline industry continuously strives to enhance passenger satisfaction and operational efficiency. In order to provide better service to passengers, airlines could adjust the space according to the needs of different customers. In our study, we discuss whether airline companies need to install child or other accommodations, such as baby seats, in expensive seating areas to better serve passengers traveling as a family and allow for the airline to increase profits. Evaluating whether or not the one time cost of installing accommodations in first class would outway the profits potentially created, can help prevent major economic loss within the companiesIn this context, understanding customer preferences and behaviors becomes crucial, especially as it relates to service choices across different traveler types. This analysis explores the variations in seat choice preferences—particularly between family and couple travelers—to identify patterns that may inform service enhancements and marketing strategies. Our thesis posits that family travelers in the Northern Hemisphere are more likely to purchase expensive seating compared to couple travelers, especially in the summer months, and subsequently rating their experience worse than what they were hoping for as opposed to couple travelers due to the level of annoyances. All of this could potentially indicate a higher valuation of comfort over cost when traveling with family, a greater disparity between family and leisure travelers in the summer months (Jun, Jul, Aug for Northern Hemisphere), and a lack of satisfaction after the flight. 
+
+## Background
+
+### Data Overview
+The dataset, Reviews and Ratings, is a comprehensive assembly of feedback from airline passengers and was obtained from Kaggle. It documents diverse aspects of flight experiences across global airlines, aiming to spotlight areas of passenger satisfaction and potential service improvement. This dataset can be instrumental for customer service enhancement and predictive modeling within the travel industry.
+
+### Data Source and Structure
+
+- Directories
+    - COURSE/project240/
+    - COURSE/data/
+- Files  
+    - COURSE/project240/projectdraft.Rmd
+    - COURSE/project240/projectdraft.html
+    - COURSE/data/airlines.csv
+- Source: Kaggle - Airlines Reviews and Ratings by @ANANDSHAW2001
+- Format: CSV
+- Dimensions: 3291 rows × 15 columns
+- Unit of Analysis: Each row corresponds to a review from an individual passenger.
+
+### Column Details:
+- Aircraft Type: Model of aircraft.
+- User Reviews: Textual feedback on the flight.
+- Country: Related to the airline or journey's start/end.
+- Type of Travelers: Category of the traveler (e.g., Solo Leisure, Family Leisure, Business, etc.)
+- Route: Flight path from departure to arrival airport.
+- Seat Types: Class of service (Economy, Business, First Class).
+- Seat Comfort: Rating of seat comfort.
+- Date Flown: Flight date.
+- Cabin Staff Service: Rating of flight attendants' service.
+- Ground Service: Rating of check-in and boarding processes.
+- Food & Beverages: Rating of onboard food and drinks.
+- Wifi & Connectivity: Rating of WiFi and internet connectivity.
+- Inflight Entertainment: Rating of entertainment options.
+- Value For Money: Passenger's value assessment.
+- Recommended: Whether the passenger would recommend the airline.
+
+### Factors Affecting Interpretation
+Reviews typically represent polar opinions—extremely positive or negative—since these experiences are more likely to prompt feedback. The dataset spans various airlines, flight classes, and geographic regions, capturing a wide array of passenger types and travel contexts. This breadth offers rich insights but also implies the need for careful interpretation, especially regarding the generalizability of the findings.
+
+### Data Focus of the Report
+In this report, we scrutinize family and couple travelers' tendencies to choose expensive seating options—namely Business or First Class. Our analysis seeks to understand how preferences for such seating arrangements could vary between these traveler demographics, particularly during peak travel periods. The insights derived could prove invaluable for airlines to customize and refine their service offerings, catering to the distinct needs of these traveler segments.
+
+
+
+### Analysis
+
+
+```{r echo=FALSE}
+airlines <- read_csv("../data/airlines.csv") %>%
+  rename(
+    aircraft = `Aircraft Type`,
+    user_reviews = `Users Reviews`,
+    country = Country,
+    passenger_type = `Type_of_Travellers`,
+    route = Route,
+    seat_type = `Seat_Types`,
+    comfort = `Seat Comfort`,
+    date = `Date Flown`,
+    staff_service = `Cabin Staff Service`,
+    ground_service = `Ground Service`,
+    food_bev = `Food & Beverages`,
+    wifi = `Wifi & Connectivity`,
+    entertainment = `Inflight Entertainment`,
+    value = `Value For Money`,
+    recommended = Recommended
+  ) %>%
+  mutate(
+    year = 2000 + as.integer(str_sub(date, -2)),
+    month = match(str_sub(date, 1, 3), month.abb),
+    Expensive = ifelse(seat_type %in% c("Business Class", "First Class"), 1, 0),
+    Cheap = ifelse(seat_type %in% c("Economy Class", "Premium Economy"), 1, 0)
+  ) %>% filter(country=='United States'| country=='United Kingdom'|country=='Canada') %>% filter(year>2015)
+
+#filter data: Couple Leisure or Family Leisure
+filtered_data <- airlines %>%
+  filter(passenger_type %in% c("Couple Leisure", "Family Leisure")) %>%
+  select(month, year, country, passenger_type, seat_type, Expensive, Cheap)
+
+#summarize data: proportion of expensive vs. cheap seat choices
+summary_data <- filtered_data %>% drop_na() %>%
+  group_by(passenger_type, month) %>%
+  summarize(
+    total_expensive = sum(Expensive),
+    total_cheap = sum(Cheap),
+    total_reviews = n(),
+    percent_expensive = total_expensive / total_reviews * 100,
+    .groups = 'drop'  )
+
+#confidence intervals for the proportions
+calculate_ci <- function(p, n) {
+  z <- qnorm(0.975)
+  se <- sqrt(p * (1 - p) / n)
+  lower <- p - z * se
+  upper <- p + z * se
+  return(c(lower, upper))
+}
+ci_results <- summary_data %>%
+  mutate(
+    ci_lower = map2_dbl(percent_expensive/100, total_reviews, ~calculate_ci(.x, .y)[1] * 100),
+    ci_upper = map2_dbl(percent_expensive/100, total_reviews, ~calculate_ci(.x, .y)[2] * 100)
+  )
+print(ci_results)
+
+
+
+passenger_data=airlines %>%
+  
+  select(month, year, country, passenger_type, seat_type) %>%
+  
+  filter(passenger_type=='Couple Leisure' | passenger_type=='Family Leisure') %>%
+  
+  mutate(Expensive=case_when(seat_type=='Business Class'|seat_type=='First Class' ~ 1, seat_type=='Economy Class' | seat_type=='Premium Economy' ~ 0),Cheap=case_when(seat_type=='Economy Class' | seat_type=='Premium Economy' ~ 1, seat_type=='Business Class' | seat_type=='First Class' ~ 0) )
+
+
+passenger_summary=airlines %>% group_by(passenger_type) %>% summarize(cares_about_quality=sum(Expensive),doesnt_care_about_quality=sum(Cheap), n=(cares_about_quality+doesnt_care_about_quality), prcnt_cares=cares_about_quality/n)
+```
+
+```{r echo=FALSE}
+ggplot(ci_results, aes(x = as.factor(month), y = percent_expensive, group = passenger_type, color = passenger_type)) +
+  geom_smooth(se = FALSE) +
+  geom_point() +
+  geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, fill = passenger_type), alpha = 0.2) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.2) +
+  facet_wrap(~ passenger_type) +
+  labs(title = "Expensive Seat Selection (Buisness/First Class) Over Time",
+       x = "Month",
+       y = "Percentage of Purchased Seats That Were Expensive (Buisness/First Class)",
+       color = "Traveler Type",
+       fill = "Traveler Type") +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+```
+
+>This graph displays the percentage of purchased seats that were expensive over a 12-month period from 2016 to 2023, with red being used for passengers travelling as a couple and blue being used for passengers travelling as a family. The dots represent the percent of purchased seats that were expensive (which we define as business and first class), the shaded regions are the 95% confidence intervals of this per month, and the solid lines are smoothed trendlines. The significant difference in these confidence intervals disproves part of our hypothesis that family travellers in the Northern Hemisphere are more likely to buy expensive seating compared to couple travellers. However, it does prove part of our hypothesis, which states that family travellers are more likely to buy expensive seats during the summer. 
+
+
+
+```{r echo=FALSE}
+airlines %>%filter(year>2015) %>%filter(passenger_type=='Family Leisure'|passenger_type=='Couple Leisure') %>%   group_by(passenger_type,month)  %>% summarize(val=mean(value)) %>% drop_na() %>% ggplot(aes(x=month, y=val, color=passenger_type))+geom_smooth(se=FALSE)+geom_point()+ expand_limits(y = c(1, 5))+geom_vline(xintercept=6, linetype='dashed')+geom_vline(xintercept=10, linetype='dashed')
+```
+
+>This graph displays the value variable over a 12-month period from 2016-2023. The 'value' variable is a number 1-5 that rates the ratio of experience to cost, or 'bang for your buck'. A rating of 5 is very good, and a rating of 1 is very bad. The graph shows that family and couple travellers rate the value of their flights fairly similarly. However, from around June to October, couples tend to rate their flights worse than family travellers, while the opposite is true for all other months of the year. Below is a t-test that allows us to calculate if this is the case only by chance.
+
+```{r echo=FALSE}
+y=airlines %>% filter(passenger_type=='Couple Leisure'|passenger_type=='Family Leisure') %>%filter(month>=6 & month<=10 ) %>% select(passenger_type, value, month) %>% pivot_wider(names_from=passenger_type, values_from=value, values_fn=list)
+
+print(t.test(unlist(y$`Couple Leisure`), unlist(y$`Family Leisure`)))
+```
+
+>The t-test outputs a p-value of .717, which is greater than alpha=.05, meaning we fail to reject the null hypothesis that couple travellers gave their flights a higher value than family travellers only by chance.
+
+```{r echo=FALSE}
+tester <- airlines %>%select(month, year, country, passenger_type, seat_type, Expensive, Cheap)
+
+#summarize data: proportion of expensive vs. cheap seat choices
+tester_summary <- tester %>% drop_na() %>%
+  group_by(passenger_type) %>%
+  summarize(
+    total_expensive = sum(Expensive),
+    total_cheap = sum(Cheap),
+    total_reviews = n(),
+    percent_expensive = total_expensive / total_reviews * 100,
+    .groups = 'drop'  )
+
+tester_summary
+```
+
+### Observations: 
+Potential Peak Travel Correlation: The peak observed for Couple Leisure might correlate with typical vacation periods or travel incentives like airline promotions, suggesting that marketing strategies or seasonal factors influence seat selection.The consistent pattern for Family Leisure could imply a predetermined budget or preference that is less influenced by external factors like seasonal promotions or holidays.
+
+Seasonal Trends: The data does not distinctly show the expected higher preference for expensive seats among Family Leisure travelers during summer months (June, July, August). This contrasts with the hypothesis that family travelers would seek more comfort during peak travel seasons.
+Instead, Couple Leisure travelers sometimes select expensive seats more frequently than Family Leisure travelers, which may indicate that couples are more willing or able to splurge on comfort for certain trips or during specific months.
+
+### Relation to Thesis and Hypothesis: 
+The data contrasts with the initial hypothesis by revealing a stronger preference for expensive seating among couples rather than families. This insight suggests that airline marketing strategies might need to shift focus depending on the season and target demographic. 
+
+
+### Discussion
+As stated earlier, the data contrasts with part of our initial hypothesis by revealing a stronger preference for expensive seating among couples rather than families. We previously thought family travellers would buy expensive tickets more often than couple travellers because they want their family to have a good time, but now that we know the opposite is true, we've assumed that couple travellers purchase expensive tickets more often than family travellers because a couple traveller is thinking 'I want this to a be a romantic experience' while a family traveller is thinking 'How can I get my kids to Disney World for as cheap as possible. However, our hypothesis also states that family travellers are more likely to buy expensive seats during the summer, which turned out to be true. This is mostly like the case due to summer break in K-12 schools that allow for families to take their children on vacation for more extended periods of times. Families are also much more willing to 'go all out' on expenditures, as summertime is viewed as the time to take your kids on vacation and create as enjoyable experience as possible for the children and adults. Something also worth looking at is the behavior of couple travellers during summertime. While couples do generally buy expensive flights more often than family travellers at all times of year, it is important to note that these percentages dip during the summertime as opposed to family travellers. The reason for this is a bit less straight-forward, but we believe it can be attributed to multiple things. For example, couple travellers could be buying less expensive seats in the summer because a lot of those couples are also parents. So, while those couples with children go on family vacations in the summer, the remaining couple travellers are those who don't have children, which typically correlates to lower age and thus lower income, so less willing to buy expensive flights.
+
+All of these differences during the summer also call into question how travelers rate their experience depending on what type of passenger are. As explained earlier, from around June to October, couples tend to rate the value, or money's worth, of their flight worse than family travellers do. We figured this might be because when couples fly in the summer, they must fly on planes with a higher amount of family travellers, who might be deemed more annoying to fly with because of their/their children's loudness and neediness. To test if this was true, we used a t-test. The p-value came out to be .717, which is far greater than our signficant value of alpha=.05. In layman's terms, it is very probable that this happened only by chance and does not provide any significant insights for the airline. In hindsight, this makes sense because on a scale of 1 to 5, a difference of about .1 is not much. 
+
+This insight suggests that airline marketing strategies might need to shift focus depending on the season and target demographic. 

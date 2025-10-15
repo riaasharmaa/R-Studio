@@ -1,0 +1,338 @@
+---
+title: "Homework 6"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,eval=T,message=F,warning=F,fig.align='center')
+library(tidyverse)
+```
+
+## Problem \#1: Testing coin flips <small>(6 pts)</small>
+
+In the six sequences below, only one of them is actually **randomly generated from independent flips of a fair coin**. Use a combination of everything you know (common sense, Monte Carlo, hypothesis testing, etc.) to identify which is actually random and explain your reasoning.
+
+(For full points, conduct a formal test and report a $p$-value for each sequence. You may use a combination of multiple tests to arrive at your answer. If you cannot compute a p-value for each sequence, you can still earn a significant amount of partial credit by carefully explaining your reasoning and response as best as you can.)
+
+My advice is **be creative** with the test statistics you come up with to eliminate each sequence! Think of some way of summarizing a sequence of flips that might be useful for comparing against a simulated sequence of random flips. After you come up with an idea for a statistic, remember to run it on many MC generated completely random flips to produce a distribution under the null, which you can then compare with your data to get a p-value. Also, be careful of now you define "more extreme" than the data.
+
+(2 bonus points available if you can find a single test that is powerful enough to reject all the fake sequences together in one step. Yes, at least one such possible test exists.)
+
+```{r}
+flips1 = "HTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHTHT"
+
+flips2 = "HHHTHTTTHHTHHTHHHTTTTHTHTHHTTHTHHHTHHTHTTTHTHHHTHTTTHTHTHHTHTHTTHTHHTHTHTTTHTHHHTHTHTTHTHTHHTHTHTHHHTHTTTHTHHTHTHTHHTTTHTHHTHHTTTTHTHTHHHTHTTHTHHTHTHTTHTHHTHTHHHTHHHTHTTTHTTHTTTHTHHHTHTHTTHTHHTHHTHTTT"
+
+flips3 = "HHTHTHTTTHTHHHTHHTTTHTHHTHTTTHTHTHHTHTHTTHTHHHHHHTTTHTHTHHTHTTTHTHHTHTHTTTHTHHHTTHTTTHTHTHHHHTHTTHHTTTTTHTHHHTHTHTTTTTHHHTHHTHHTHHHTTTTHTHTHHHTHHTTTTTHTHHHTHTHTHTTTHTHHHTHTHTHTTHTHHTHTHTHTTTTHTHHHTHTH"
+
+flips4 = "HTHHHHHHHTHTTHHTTHHHTHTHTTTHHTHHHTHHTTHTTTTTTTTTHTHHTTTTTHTHTHTHHTTHTTHTTTTTHHHTHTTTHTHTHHHTHTTTTHTHTHHTTHTHTTHHTHTHHHHTHTTHHTTHTTHTTHTHHHHHHTTTTTTHHHTTHTHHHHTTTHTTHHHTTHTHHTTTHHTHHTTTHTHHTHHHTHHTTHHH"
+
+flips5 = "HHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTTHHHHHHHHHHTTTTTTTTTT"
+
+flips6 = "TTHTTTHTTTTTTTHTHTHTHTTHTTHTHHTHHTTTHHTHTTTHTHHTHHHTHTTHHTHHTTHTHTTTTHTHTTTHHTTTTTTTTHTHHTTHTTTTTTHTHTHTHTTTHTTHHTTHTTTHHTTTHTTHTTTTHTTTTHHTTTHTHTHHHTTTTTTHTHHTTTTTTTTTTTTHHHTTTHHHTTTHTTTHTHTTHTTTTTHT"
+
+# you can use the function below to split the above sequences in vectors of flips
+split = function(str) strsplit(str, split="")[[1]]
+split1 = split(flips1)
+split2 = split(flips2)
+split3 = split(flips3)
+split4 = split(flips4)
+split5 = split(flips5)
+split6 = split(flips6)
+```
+
+> Properties of Random Coin Flips we will test: 
+>
+- Number of heads
+- longest run of heads
+- longest run of tails
+- Number of back to back Head Tail Combos (HeadTails or TailsHeads)
+
+>We will compare Monte Carlo simulations of a random coin to the given flip sequences, testing with a significance level of 0.05.
+
+> Test Statistic(s): 
+> 
+- Number of Heads
+- Longest Run of Consecutive Heads
+- Longest Run of Consecutive Tails
+- Sequence of HT Combos
+- Total Number of Runs
+
+> Hypotheses:
+>
+- Null Hypothesis (H0): The sequence is generated from independent flips of a fair coin.
+- Alternative Hypothesis (HA): The sequence is not generated from independent flips of a fair coin.
+
+> Functions:
+
+```{r}
+simulate_flips = function(n = 200){
+  flips = sample(c("H", "T"), n, replace = TRUE)
+}
+longest_run_heads = function(run){
+  rle_sequence = rle(run)
+  longest_run = max(rle_sequence$lengths[rle_sequence$values == "H"], na.rm = TRUE)
+  return(longest_run)
+}
+longest_run_tails = function(run){
+  rle_sequence = rle(run)
+  longest_run = max(rle_sequence$lengths[rle_sequence$values == "T"], na.rm = TRUE)
+  return(longest_run)
+}
+num_of_heads = function(run){
+  return(sum(run == "H"))
+}
+HT_Sequence_Counter = function(run){
+  counter = 0
+  len = length(run) - 1
+  for(i in 1:len){
+    if(run[i] == "H" & run[i + 1] == "T"){
+      counter = counter + 1
+    }
+     if(run[i] == "T" & run[i + 1] == "H"){
+      counter = counter + 1
+    }
+  }
+  return(counter)
+}
+num_of_runs = function(run) {
+  rle_sequence = rle(run)
+  return(length(rle_sequence$lengths))
+}
+```
+
+> Monte Carlo Simulations:
+
+```{r}
+longest_runs_H = numeric(1e5)
+num_heads = numeric(1e5)
+longest_runs_T = numeric(1e5)
+HT_combos = numeric(1e5)
+num_runs_sim = numeric(1e5)
+for(i in 1:1e5){
+  data = simulate_flips()
+  longest_runs_H[i] = longest_run_heads(data)
+  num_heads[i] = num_of_heads(data)
+  longest_runs_T[i] = longest_run_tails(data)
+  HT_combos[i] = HT_Sequence_Counter(data)
+  num_runs_sim[i] = num_of_runs(data)
+}
+```
+
+> Calculating P Values:
+
+```{r}
+calculate_p_values = function(split_data) {
+  data_longest_run_H = longest_run_heads(split_data)
+  data_num_heads = num_of_heads(split_data)
+  data_longest_run_T = longest_run_tails(split_data)
+  data_HT_combos = HT_Sequence_Counter(split_data)
+  data_num_runs = num_of_runs(split_data)
+  p_value_longest_run_h = 2 * min(mean(longest_runs_H <= data_longest_run_H), mean(longest_runs_H >= data_longest_run_H))
+  p_value_longest_run_t = 2 * min(mean(longest_runs_T <= data_longest_run_T), mean(longest_runs_T >= data_longest_run_T))
+  p_num_heads = 2 * min(mean(num_heads <= data_num_heads), mean(num_heads >= data_num_heads))
+  p_HT_combos = 2 * min(mean(HT_combos < data_HT_combos), mean(HT_combos >= data_HT_combos))
+  p_num_runs = 2 * min(mean(num_runs_sim <= data_num_runs), mean(num_runs_sim >= data_num_runs))
+  return(c(min(p_value_longest_run_h, 1), min(p_value_longest_run_t, 1), min(p_num_heads, 1), min(p_HT_combos, 1), min(p_num_runs, 1)))
+}
+
+p_vals_1 = calculate_p_values(split1)
+p_vals_2 = calculate_p_values(split2)
+p_vals_3 = calculate_p_values(split3)
+p_vals_4 = calculate_p_values(split4)
+p_vals_5 = calculate_p_values(split5)
+p_vals_6 = calculate_p_values(split6)
+```
+
+> Displaying P-Values:
+
+```{r}
+p_value_table = data.frame(
+  Longest_Run_Heads = c(p_vals_1[1], p_vals_2[1], p_vals_3[1], p_vals_4[1], p_vals_5[1], p_vals_6[1]),
+  Longest_Run_Tails = c(p_vals_1[2], p_vals_2[2], p_vals_3[2], p_vals_4[2], p_vals_5[2], p_vals_6[2]),
+  Number_of_Heads = c(p_vals_1[3], p_vals_2[3], p_vals_3[3], p_vals_4[3], p_vals_5[3], p_vals_6[3]),
+  HT_combos = c(p_vals_1[4], p_vals_2[4], p_vals_3[4], p_vals_4[4], p_vals_5[4], p_vals_6[4]),
+  run_p_vals = c(p_vals_1[5], p_vals_2[5], p_vals_3[5], p_vals_4[5], p_vals_5[5], p_vals_6[5])
+)
+p_value_table
+```
+
+> Interpretation:
+>
+- Sequences 1, 2, and 5: These sequences fail multiple tests with several p-values well below 0.05, indicating they are clearly non-random.
+-Sequence 6: Passes some tests but fails significantly in key categories like "Number of Heads" and "Longest Run of Heads," making it non-random.
+-Sequence 3: Mostly passes but has a borderline p-value (0.00048) in the HT combos test, suggesting some non-random behavior.
+-Sequence 4: Passes all tests with p-values comfortably above 0.05, making it the strongest candidate for being generated by random coin flips.
+-Sequence 4 is the most likely random sequence.
+
+## Problem \#2: Finding the Trick Coin <small>(6 pts; 2pts each)</small>
+
+I have two coins in my pocket - a trick coin with two heads and a fair coin with one head and one tail(s?). We'll play a game. I will grab one coin at random, and flip it $N$ times. After that you will have to decide if it is the fair coin or the trick coin. The null hypothesis is that it is the fair coin. 
+
+**Decision Rule 1**: If after $N$ flips there are no tails, then you decide it is the trick coin. If there is at least 1 tail then you know it is the fair coin. 
+
+a. Using "Decision Rule 1", what is the lowest number of flips $N$ would you need in order to have a significance level less than 5% for this test?
+
+```{r}
+N = ceiling(log(0.05)/log(0.5)) 
+paste("The Lowest Number of Flips to have a Significance Level < 0.05 for this test:", N) 
+```
+
+b. Using $N$ from part a, what is the power of the test?
+
+> Assume N = 5 to calculate the power when there are no tails.
+
+```{r}
+paste("Power = ", 1-(0.5)^5)
+```
+
+c. Suppose $N=4$ is decided. How can you modify the decision process to have a significance level of exactly 5%? Does this change the power of the test?
+
+> Probability of getting 4 heads with a fair coin
+
+```{r}
+p_4_heads_fair_coin <- (0.5)^4
+p_4_heads_fair_coin
+```
+
+> To achieve a significance level of 5%, we will reject the null hypothesis with 80% probability when 4 heads are observed
+
+```{r}
+significance_level <- 0.05
+prob_reject_null_4_heads <- significance_level / p_4_heads_fair_coin
+prob_reject_null_4_heads
+```
+
+> Power of the Test
+> If we get any tails in 4 flips, we immediately reject the null hypothesis.
+> If we get 4 heads, we reject the null hypothesis 80% of the time.
+
+```{r}
+power_of_test <- prob_reject_null_4_heads
+power_of_test
+```
+
+> Results
+
+```{r}
+paste("In the event of getting 4 heads, we will reject the null hypothesis with a probability of:", round(prob_reject_null_4_heads, 2))
+paste("The power of this test is:", round(power_of_test, 2))
+```
+
+d. Extra Credit (2 points): Suppose if you guess correct you win \$100 (and if you're wrong you get nothing), but each flip of the coin costs \$10. What strategy would you use to maximize your expected profit from this game?
+
+> profit equation = Probability of Guessing Correctly after N Flips * 100 - 10 * N
+
+```{r}
+profit_equation = function(N) {
+  prob_correct = 1 - (0.5)^N
+  profit = prob_correct * 100 - 10 * N
+  return(profit)
+}
+
+n_vector = 1:20
+profit = profit_equation(n_vector)
+
+plot(n_vector, profit, type = "b", col = "blue", pch = 19,
+     xlab = "N", ylab = "Expected Profit",
+     main = "Expected Profit vs Number of Flips", ylim = c(-100, 100))
+grid()
+text(n_vector, profit, labels = round(profit, 3), pos = 3, cex = 0.8, col = "red")
+axis(1, at = seq(1, 20, by = 1))
+
+optimal_N = which.max(profit)
+paste("The number of flips that maximizes expected profit is:", optimal_N)
+```
+
+## Problem \#3: Testing the maximum of a uniform distribution <small>(8 pts; 2 pts each)</small>
+
+We sample $X_1, X_x,\ldots,X_n \overset{\text{iid}}\sim\text{Uniform}(0,m)$ where $m$ is an unknown maximum. Sleazy Jim tells you that $m=1$ but you're not so sure. The 50 values sampled are in the following data file:
+
+```{r}
+X <- read.csv("uniform_sample.csv")$x
+```
+
+a. Write out in formal notation the null and alternative hypotheses.
+
+> 
+- Null Hypothesis (H0): m = 1 (the max is 1)
+- Alternative Hypothesis (HA): m is not = 1 (max is not 1)
+
+b. Come up with a test statistic and measure your sampled data. Is this a one-sided test or two-sided test?
+
+> The test statistic is the maximum value from the sample data.
+> This is a two-sided test because we are assessing whether m is equal to 1 or not, rather than testing if m is specifically less than or greater than 1.
+
+c. Simulate a distribution for the test statistic under the null hypothesis of size at least 1000. Display a histogram of your test statistic distribution.
+
+```{r}
+n = length(X) 
+mc_runs = replicate(1e5, max(runif(n, 0, 1)))  
+hist(mc_runs, main = "Histogram of Max Value from Uniform(0,1)", xlab = "Max Value")  
+abline(v = max(X), col = "red") 
+```
+
+d. Calculate the $p$-value for this data and make a conclusion.
+
+```{r}
+observed_max = max(X)  
+p_value = 2 * min(mean(mc_runs >= observed_max), mean(mc_runs <= observed_max)) 
+p_value
+```
+
+> Since the p-value is greater than our significance level of 0.05, we do not have sufficient evidence to reject the null hypothesis. Therefore, we cannot conclude that the data is not modeled by a Uniform(0,1) distribution.
+
+## Problem \#4: Blurtle <small>(10 pts; 2 pt each)</small>
+
+Have you been playing the hot new game Blurtle? It's a (fictional) word game you can play daily - you have to guess a 5 letter word and you only have 6 attempts. I've been playing for the past 100 days and I've been tracking my number of guesses. I'm trying to figure out whether I have been getting better or not.
+
+The file `blurtle.csv` contains 100 rows of data, giving the number of tries to guess the word. If it took 7 guesses that actually means I failed (you don't actually get a 7th guess). 
+
+```{r}
+blurtle <- read.csv("blurtle.csv")
+```
+
+Your task is to perform a permutation test on the data to determine if there is statistical evidence of a true improvement trend.
+
+a. State the null and alternative hypotheses
+>
+- Null Hypothesis (H0): There is no change in this players performance as time progresses
+- Alternative Hypothesis (HA): There is a positive change (improvement) in this players performance as time progresses (number of tries stays constant)
+
+b. Determine a test statistic that identifies a trend in the number of tries. There are many good ones you could use - be creative.
+
+> Test Statistic: Correlation between day number and number of tries, if there is improvement there should be a negative correlation (number of tries decreases as time progresses)
+
+c. Decide whether the test will be a one or two-tailed test
+
+> One sided test because we do not care if there a “negative improvement”. In this case, a negative improvement is “the same” as no improvement.
+
+d. Simulate a distribution of test statistics under the null hypothesis
+
+> If there is no improvement, the correlation should be the same regardless of the order of the data.
+
+```{r}
+observed_corr = cor(blurtle$day, blurtle$tries)
+replications = function(){
+  correlations = numeric(1e5)
+  for(i in 1:1e5){
+    shuffled_data = sample(blurtle$tries)
+    shuffled_correlation = cor(1:100, shuffled_data)
+    correlations[i] = shuffled_correlation
+  }
+  return(correlations)
+}
+```
+
+e. Calculate the test statistic on the observed data, calculate the $p$-value and state your conclusions.
+
+```{r}
+hist(replications(), main = "Correlation of Shuffled Data", xlab = "Correlation")
+abline(v = observed_corr, col = "red")
+p_value = mean(replications() <= observed_corr)
+paste("P Value = ", p_value)
+paste("Observed Correlation = ", observed_corr)
+```
+
+> After calculating the test statistic on the observed data and determining the p-value, we find that the p-value is less than 0.05. Given that the correlation is negative, we reject the null hypothesis. This suggests that the number of guesses improves over time, indicating that the player got better at Blurtle as time progressed.
+

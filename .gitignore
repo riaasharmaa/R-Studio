@@ -1,0 +1,28 @@
+# R
+.Rhistory
+.RData
+.Rproj.user
+*.Rproj
+
+# R Environment Variables
+.Renviron
+
+# Output
+*.html
+*.pdf
+
+# Temporary files
+*~
+.Rapp.history
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+

@@ -1,0 +1,229 @@
+---
+title: "Homework 8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,eval=T,message=F,warning=F,fig.align='center')
+library(tidyverse)
+```
+
+## Problem 1: The infamous mule kick data <small>10pts</small>
+
+The file `mule_kicks.csv`, available for download (here)[https://kdlevin-uwstat.github.io/STAT340-Fall2021/hw/03/mule_kicks.csv], contains a simplified version of a very famous data set. The data consists of the number of soldiers killed by being kicked by mules or horses each year in a number of different companies in the Prussian army near the end of the 19th century.
+
+This may seem at first to be a very silly thing to collect data about, but it is a very interesting thing to look at if you are interested in rare events. Deaths by horse kick were rare events that occurred independently of one another, and thus it is precisely the kind of process that we might expect to obey a Poisson distribution.
+
+Download the data and read it into R by running
+
+```{r}
+download.file('https://kdlevin-uwstat.github.io/STAT340-Fall2021/hw/03/mule_kicks.csv', destfile='mule_kicks.csv')
+mule_kicks = read.csv('mule_kicks.csv', header=TRUE)
+
+head(mule_kicks)
+```
+
+`mule_kicks` contains a single column, called `deaths`.
+Each entry is the number of soldiers killed in one corps of the Prussian army in one year.
+There are 14 corps in the data set, studied over 20 years, for a total of 280 death counts.
+
+
+### Part a: estimating the Poisson rate <small>3pts</small>
+
+Assuming that the mule kicks data follows a Poisson distribution, produce a point estimate for the rate parameter $\lambda$.
+There are no strictly right or wrong answers, here, though there are certainly better or worse ones.
+
+```{r}
+lambda_hat = mean(mule_kicks$deaths)
+lambda_hat
+```
+
+> This estimate, around 0.7 based on previous context, suggests that on average, each corps experienced 0.7 deaths per year from mule or horse kicks. This parameter will serve as the Poisson rate estimate for the remainder of the analysis.
+
+### Part b: constructing a CI <small>4pts</small>
+
+Using everything you know (Monte Carlo, CLT, etc.), construct a confidence interval for the rate parameter $\lambda$.
+Explain in reasonable detail what you are doing and why you are constructing the confidence interval in this way (a few sentences is fine!).
+
+```{r}
+point_estimate <- lambda_hat
+n <- 280
+se <- sqrt(lambda_hat / n)
+z <- 1.95
+ci <- point_estimate + c(-1, 1) * z * se
+ci
+```
+
+> To construct the confidence interval, I used the sample mean as the point estimate, assuming the data follows a Poisson distribution. With a sample size of 280, the Central Limit Theorem allows us to approximate the distribution as normal. Using this, we calculate a 95% confidence interval by multiplying the standard error by 1.95. This gives a range where we are 95% confident the true rate lies.
+
+### Part c: assessing a model <small>3pts</small>
+
+Here's a slightly more open-ended question.
+We *assumed* that the data followed a Poisson distribution.
+This may or may not be a reasonable assumption.
+Use any and all tools that you know to assess (either with code or simply in words) how reasonable or unreasonable this assumption is.
+
+Once again, there are no strictly right or wrong answers here.
+Explain and defend your decisions and thought processes in a reasonable way and you will receive full credit.
+
+```{r}
+mean(mule_kicks$deaths)
+var(mule_kicks$deaths)
+```
+
+> With a mean of about 0.7 and a variance of about 0.76, the values are close, suggesting that the Poisson distribution might be a reasonable model. Additional checks, like comparing the observed distribution of deaths to a theoretical Poisson distribution, could further assess the fit.
+
+## Problem 2: A Confidence interval for the median (8 points)
+
+The following numbers were sampled from a population. You can assume they are independent and identically distributed (they are, in fact).
+
+```{r}
+mysteryData <- c(16.91,19.96,16.55,16.77,19.64,16.87,16.50,14.19,16.54,18.64,11.27,17.08)
+```
+
+We want to estimate the population median with a 95\% confidence interval.
+
+a. First assume that the population is normally distributed. Come up with estimates for the parameters of the normal distribution based on the data.
+
+```{r}
+mu = mean(mysteryData)
+var = var(mysteryData)
+paste("Data ~ iid N(",mu, ",",var, ")")
+```
+
+> The output represents our assumption that the data is independently and identically distributed and approximately follows a normal distribution with the calculated mean and variance values.
+
+b. Construct a 95\% confidence interval assuming the population is a normal distribution. Use the Monte Carlo Approach. Use 1000 Monte Carlo replicates.
+
+```{r}
+NMC = 1000
+medians = numeric(1000)
+for(i in 1:NMC){
+  sample = rnorm(length(mysteryData), mu, sqrt(var))
+  medians[i] = median(sample)
+}
+ci = quantile(medians, probs = c(0.025, 0.975))
+ci
+```
+
+c. Now assume that the population is uniformly distributed. Come up with estimates for the min and max of the uniform distribution using the method of moments. This is based on $\bar{X}$, the sample mean and $S$, the sample standard deviation. The point estimates for a and b are given by  $$\bar{X} \pm \sqrt{3} S$$ 
+```{r}
+min = mean(mysteryData) - sqrt(3)* sd(mysteryData)
+max = mean(mysteryData) + sqrt(3)* sd(mysteryData)
+paste("Data ~iid Uniform(",min, ",",max, ")")
+```
+
+d. Construct a 95\% confidence interval assuming the population is a uniform distribution. Use 1000 Monte Carlo replicates.
+
+```{r}
+NMC <- 1000
+medians <- numeric(NMC)
+for(i in 1:NMC){
+  sample = runif(length(mysteryData), min, max)
+  medians[i] = median(sample)
+}
+ci = quantile(medians, probs = c(0.025, 0.975))
+ci
+```
+
+> This code produces the lower and upper bounds of the 95% confidence interval for the median, assuming the population is uniformly distributed. The ci vector will contain these bounds, giving a range where we are 95% confident the true population median lies.
+
+## Problem 3: Closing the loop <small>6 pts</small>
+
+In our discussion of the Universal Widgets of Madison company from lecture, we said that we were interested in two questions:
+
+1. Estimating the probability $p$ that a widget is functional.
+2. How many widgets should be in a batch to ensure that (with high probability) a batch ships with at least $5$ functional widgets in it?
+
+We discussed question (1) at length in lecture.
+What about question (2)?
+Our client wants to know how many widgets should ship in each batch so as to ensure that the probability there are at least $5$ functional widgets in a batch is at least $0.99$.
+
+Now, suppose that we have observed data and estimated $p$ to be $0.82$.
+
+Use everything you know so far in this course to give a recommendation to the client.
+Be sure to explain clearly what you are doing and why.
+If there are any steps, assumptions, etc., that you are not 100% pleased with, feel free to point them out.
+
+__Note:__ there are at least two "obvious" ways to solve this problem. One is based on using Monte Carlo (i.e., assume $p=0.82$ is the truth, and try generating batches of different sizes, etc.).
+The other uses direct computation of probabilities, using basic facts about Binomial RVs.
+Neither of these is necessarily better than the other, and you do not need to use both approaches to receive full credit.
+Indeed, you are free to try doing something else entirely, if you wish.
+Just explain clearly what you are doing and why!
+
+```{r}
+p <- 0.82
+target_prob <- 0.99
+n <- 5
+prob_at_least_5 <- 0
+while (prob_at_least_5 < target_prob) {
+  prob_at_least_5 <- 1 - pbinom(4, n, p)
+    if (prob_at_least_5 < target_prob) {
+    n <- n + 1
+  }
+}
+cat("Minimum batch size to ensure 5 working widgets (0.99 prob)", n, "\n")
+cat("Achieved probability", prob_at_least_5, "\n")
+```
+
+> Minimum Batch Size: This code finds the smallest batch size such that the probability of having at least 5 functional widgets in the batch is at least 0.99.
+> Probability Confirmation: The achieved probability for this batch size will be displayed, confirming that it meets or exceeds the target of 0.99.
+> This approach uses a binomial probability calculation, which is efficient and accurate for this type of problem. The assumption here is that each widget’s functionality is independent of the others, which is reasonable in many manufacturing contexts.
+
+## Problem 4: Estimating Coverage Rate (6 points)
+
+Suppose we want to estimate the $p$ parameter from a Geometric distribution. By doing some research you would find that an unbiased estimator for $p$ is given as:
+
+$$\hat{p} = \frac{1}{1+\frac{n}{n-1}\bar{X}}$$
+
+a. Create a plot that shows the coverage rate of a 95\% confidence interval for samples of size 12 for values of p: .10, .20, ..., .80, .90. 
+
+* To estimate the coverage rate, use 500 Monte Carlo replicates
+* To construct each MC interval you should use 500 MC replicates
+
+If this is taking too long to run, lower both of these to 200 replicates.
+
+```{r}
+set.seed(1)
+p <- seq(.1,.9,.1)
+coverage <- rep(0, length(p))
+results <- data.frame(p, coverage)
+NMC1 <- 500
+NMC2 <- 500
+
+for(j in 1:nrow(results)){
+  # pull out the value p from the results data frame
+  p <- results$p[j]
+  # the 'contains' vector will be a collection of TRUE and FALSE, based
+  # on whether each CI contains the value p
+  contains <- rep(FALSE, NMC1)
+  for(i in 1:NMC1){ #Construct NMC1 confidence intervals
+    #generate some data initially from the geometric distribution
+    sample_data <- rgeom(12, p)
+    #calculate the unbiased estimate of p
+    p_estimate = 1/(1+(12/11)*mean(sample_data))
+    #Now you want to use your p.hat to generate NMC2 sets of data
+    #Each time you want to calcualte an unbiased phat, and store it.
+    phats <- numeric(NMC2)
+    for (k in 1:NMC2) {
+      data = rgeom(12, p_estimate)
+      phats[k] = 1/(1+(12/11)*mean(data))
+    }
+    #Your Monte Carlo Confidence interval should be based on
+    #appropriate sample quantiles
+    CI_lower = quantile(phats, 0.025)
+    CI_upper = quantile(phats, 0.925)
+    #Last, assign 'contains[i]' to be TRUE or FALSE based on 
+    #whether p is >= than the lower bound AND <= the 
+    #upper bound. 
+    contains[i] = (p >= CI_lower & p <= CI_upper)
+  }
+  results[j, "coverage"] <- mean(contains)
+}
+plot(x=results$p, y=results$coverage, ylim=c(min(coverage),1), type="l")
+abline(h=.95, lty=2)
+```
+
+b. What do you observe? Does the coverage of MC intervals tend to be affected by the value of $p$? In what way?
+
+> The results imply that the accuracy of the Monte Carlo confidence intervals in capturing the true p may depend on the value of p. Lower values of p may lead to less accurate confidence intervals, possibly requiring alternative methods or adjustments to improve interval accuracy in these cases.

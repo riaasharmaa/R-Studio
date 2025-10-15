@@ -1,0 +1,98 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, error = TRUE)
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(purrr)
+library(stringr)
+library(ggplot2)
+library(readxl)
+library(kableExtra)
+library(viridisLite)
+library(lubridate)
+library(scales)
+```
+## Project Proposal
+
+### Group Members
+Ria Sharma, Haley Bondoc, Ethan Gabriele, Jiaming Zhang
+
+### Communication Plan
+- Meet after Discussion Timings for 1.5 hours each week
+- All communication on imessage groupchat
+- Share updated files through email chain
+
+### Data Description
+
+- Data was found and downloaded off: https://www.kaggle.com/datasets/anandshaw2001/airlines-reviews-and-rating?resource=download
+- Author: @ANANDSHAW2001
+- Size: 3291 rows and 15 columns, each row representing a single review by an airline passenger. 
+- Type: CSV
+- "The Airlines Reviews and Ratings dataset is a comprehensive collection of passenger feedback on various aspects of their flight experiences across different airlines. This dataset aims to provide insights into passenger satisfaction and airlines' service quality, offering valuable data for analysis in the travel and hospitality industry, customer service improvement, and predictive modeling for customer satisfaction. Airlines Reviews and Ratings Dataset, a rich collection designed to explore the multifaceted aspects of air travel experiences across various airlines worldwide. This dataset encompasses a broad range of data points, from aircraft types and user reviews to detailed service ratings, offering a unique lens through which to analyze and predict airline performance from a passenger perspective."
+- In real terms, a single row of the dataset represents a review provided by an individual airline passenger.
+
+Column Details:
+
+- Aircraft Type: The model of the aircraft used for their flight.
+- User Reviews: Their textual feedback about the flight experience.
+- Country: The country associated with the airline or possibly the departure or destination country.
+- Type of Travelers: The category of the traveler (e.g., Solo Leisure, Family Leisure, Business, etc.), indicating the purpose or context of their travel.
+- Route: The specific flight route taken, typically denoted by the departure and arrival airports.
+- Seat Types: The class of service used, such as Economy Class, Business Class, or First Class.
+- Seat Comfort: A numerical rating of how comfortable the seat was.
+- Date Flown: The date when the flight occurred.
+- Cabin Staff Service: A numerical rating of the service quality provided by the flight attendants.
+- Ground Service: A numerical rating of the airline's ground services, including check-in and boarding processes.
+- Food & Beverages: A numerical rating of the quality of food and beverages provided during the flight.
+- Wifi & Connectivity: A numerical rating of the availability and quality of WiFi and connectivity options onboard.
+- Inflight Entertainment: A numerical rating of the entertainment options available during the flight, such as movies, music, and games.
+- Value For Money: A numerical rating reflecting the passenger's perception of the value for the price paid for the ticket.
+- Recommended: A binary (yes/no) indication of whether the reviewer would recommend this airline to others based on their experience.
+
+- Given the data set's focus on airline service reviews, if we consider this data as a sample, the larger population from which it's drawn would encompass all reviews of airline services globally, across all airlines, flight classes, and routes, over the period covered by your dataset. This population includes feedback from passengers regarding their experiences with seat comfort, cabin staff service, ground service, food and beverages, wifi and connectivity, inflight entertainment, and their perceptions of value for money.This larger population reflects a comprehensive overview of passenger satisfaction and preferences related to airline travel, spanning different geographic regions, airline companies, and types of travelers (such as solo leisure, business, couple leisure, and family leisure travelers). It encapsulates a wide range of experiences and opinions that could inform airlines and other stakeholders in the aviation industry about what aspects of their service are most appreciated or where there might be room for improvement.
+
+### Questions of Interest
+
+- Does Business class have the highest overall ratings (Cabin staff, ground service, food beverage, wifi & connectivity, in flight entertainment, seat comfort, value combined ratings)?
+- Is Business class more popular during summer months (May to August) in UK, US, and Canada then Economy class from 2019-2023?
+- Are Business (type of) travelers most likely to pay for the business class?
+
+
+### Data Source
+
+- Directories
+    - COURSE/project240/
+    - COURSE/data/
+- Files  
+    - COURSE/project240/projectproposal.Rmd
+    - COURSE/project240/projectproposal.html
+    - COURSE/data/airlines.csv
+
+```{r}
+airlines=read_csv("../data/airlines.csv")%>% select(`Aircraft Type`,Country, Type_of_Travellers, Route, Seat_Types, `Seat Comfort`, `Date Flown`, `Cabin Staff Service`,`Ground Service`, `Food & Beverages`, `Wifi & Connectivity`, `Inflight Entertainment`,`Value For Money`, Recommended) %>% rename(aircraft='Aircraft Type', country=Country, passenger_type='Type_of_Travellers', route=Route, seat_type=Seat_Types, comfort='Seat Comfort', date='Date Flown', staff_service='Cabin Staff Service', ground_service='Ground Service', food_bev='Food & Beverages', wifi='Wifi & Connectivity', entertainment='Inflight Entertainment', value='Value For Money', recommended='Recommended')%>% mutate(year=2000+ as.integer(str_sub(date, 5))) %>% mutate(month=str_sub(date, start=1, end=3)) %>% relocate(month, year) 
+airlines
+```
+
+### Graph
+
+- What class (Business or Economy) are most popular by month from 2019-2023?
+
+> We will be using a line graph to show the relationship between class and month by each year from 2019-2023. The x-axis will display the months and the y-axis will display the values for total business and total economy seats. There will be five lines for each year separated by color. 
+
+
+### Methods
+
+- Does Business class have the highest overall ratings (Cabin staff, ground service, food beverage, wifi & connectivity, in flight entertainment, seat comfort, value combined ratings)?
+METHOD: Find the mean rating of each seat class, and see if business class has the highest mean rating out of all classes
+
+- Is Business class more popular during summer months (May to August) in UK, US, and Canada than Economy class from 2019-2023?
+METHOD: Find the percentage of class seats that business class seats takes up per month and see if that percentage is greater in May, June, July, and August
+
+- Are Business (type of) travelers most likely to pay for the business class?
+METHOD: Find the sums of yes’s or no’s in the “recommended” column for each type of traveler that also flew on business class. Compare the values against the other types of travelers to determine if business travelers have the highest number of positive recommendations (yes’s). 

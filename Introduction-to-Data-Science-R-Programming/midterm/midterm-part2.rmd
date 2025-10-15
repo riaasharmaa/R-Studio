@@ -1,0 +1,474 @@
+---
+title: "SP24 STAT240 Midterm <small>take home part</small>"
+output: html_document
+---
+
+<style>body{color:#000!important}h2,h3{margin-top:50px}</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,eval=T,warning=F,message=F)
+
+# load in packages
+library(tidyverse)
+library(lubridate)
+library(scales)
+
+###
+### REMEMBER TO SET YOUR WORKING DIRECTORY!!!
+###
+```
+
+
+
+## Important notes:
+
+ - There are 2 questions with 2-3 parts each. Each part is worth 10 points. That makes a total of 5*10=50 points for this take home exam. Question 1 is longer and more complex than question 2. **Use your time wisely!**
+
+ - Remember you can use any and all notes, files, videos, and cheat sheets presented in class or found on Canvas (for the tidyverse cheat sheets, you may find them using the internet). You may also reference R documentation manuals for any function. However, you may NOT search for other help online or discuss exam materials with anyone.
+
+ - **All plots MUST include proper titles, labels**, etc. for full points!
+
+ - **If we ask you to print a result, you MUST print it** or you may lose points!
+
+ - Please **KNIT as you go along and CHECK YOUR OUTPUT to ensure there are no errors**!
+
+ - Also make sure you do NOT delete the blank lines around section headers (e.g. the ## Question x and ### Part x lines). Deleting the extra lines may cause R to knit document sections incorrectly, and we use these sections to help navigate through your exams. If they are messed up, it could make it more likely for us to accidentally miscalculate your score.
+
+ - ***If you have ANY questions, please email the instructor and also CC all TAs in your section!*** and we will try to answer them as quickly as we can.
+
+
+
+
+
+## Question 1
+
+
+This question involves cleaning and exploring a dataset from the United States Department of Agriculture (USDA) Foreign Agriculture Service (FAS) Production, Supply, and Distribution (PS&D) database, [source](https://apps.fas.usda.gov/psdonline/app/index.html#/app/home).
+
+> Note: Parts 1B and 1C both depend on 1A since 1A has all the data cleaning, but 1B and 1C do not depend on each other. If you run into problems with 1A, do your best to write as much work as possible for 1B and 1C to earn partial credit.
+
+```{r}
+## Run this entire chunk to read in all the data and convert the units to be consistent
+
+# download file if doesn't exist yet
+if(!file.exists("psd_alldata_csv.zip")){
+  download.file("https://pages.stat.wisc.edu/~bwu62/psd_alldata_csv.zip",destfile="psd_alldata_csv.zip")
+}
+
+# read in file
+psd = read_csv("psd_alldata_csv.zip")
+
+# convert all MT units to 1000 MT (i.e. millions of tons) so everything is in same units
+psd = psd %>% mutate(Value = ifelse(Unit_Description=="(MT)",Value/1000,Value),
+                     Unit_Description = ifelse(Unit_Description=="(MT)","(1000 MT)",Unit_Description))
+
+# table of units (for reference)
+units = psd %>% 
+  select(Commodity_Description,Attribute_Description,Unit_Description) %>% 
+  distinct %>% 
+  pivot_wider(names_from=Attribute_Description,values_from=Unit_Description)
+
+
+###
+### CHECK: psd should have 2001791 rows and 12 columns! If you do not have the right dimensions,
+###        remove the above lines and try downloading manually to a different (not cloud-synced
+###        directory, then importing it yourself. If you still have problems, CONTACT US!
+###
+
+dim(psd)
+```
+
+
+
+
+### Part 1A
+
+
+Create a new data frame called `psd_tidy` by performing the following operations **IN THE ORDER SPECIFIED!**. If you do the operations out of order you WILL get errors! Write all code in the chunk provided below. Check after each step that your data frame matches what is expected by using `dim()` to get the dimensions.
+
+
+> NOTE: I HIGHLY recommend reading the instructions below in the knitted HTML file instead of in this Rmd file, they're formatted to be MUCH easier to read in HTML format!
+
+
+1. First, select just the `Commodity_Description`, `Country_Code`, `Country_Name`, `Market_Year`, `Attribute_Description`, and `Value`.
+   - **After step 1, your data frame should have 2,001,791 rows and 6 columns.**
+
+2. Next, pivot the data frame to a wider format so that variable names from `Attribute_Description` are spread out over multiple columns and values from `Value` are used to fill in the data frame.
+   - We highly recommend adding ` names_repair="universal" ` to your pivot function, which will automatically repair column names by replacing invalid characters with periods
+   - **After step 2, your data frame should have 155,338 rows and 75 columns**
+
+3. After step 2, you should have a lot more columns with specific commodity details like production, imports/exports, etc. Select just the columns `Commodity_Description`, `Country_Name`, `Market_Year`, `Production`, `Imports`, `Exports` and rename these as "commodity", "country", "year", "production", "import", "export" . In addition, please also sort rows by commodity, then country, then year.
+   - **After step 3, your data frame should have 155,338 rows and 6 columns**
+
+4. Now, remove rows where:
+   - The country is in a list of countries which do not have recent data for a variety of reasons (**see chunk below for details**)
+      - Hint: you may consider using the syntax ` ! x %in% y ` inside `filter()` which gives you rows where column `x` are NOT in the vector `y`, OR alternatively you can use an appropriate filtering join function such as `anti_join(x,y)` to remove the rows of data frame `x` that exist in `y`.
+   - The commodity is either "Cotton", "Millet", or "Mixed Grain" as these are reported inconsistently.
+   - The year is 2024, since the current year is incomplete.
+   - **After step 3, your data frame should have 123,186 rows and 6 columns**
+
+```{r}
+#step 1
+psd_tidy <- psd %>%
+  select(Commodity_Description, Country_Code, Country_Name, Market_Year, Attribute_Description, Value)
+dim(psd_tidy)
+
+#step 2
+psd_tidy <- psd_tidy %>%
+  pivot_wider(names_from = Attribute_Description, values_from = Value, names_repair = "universal") 
+dim(psd_tidy)
+
+#step 3
+psd_tidy <- psd_tidy %>%
+  select(Commodity_Description, Country_Name, Market_Year, Production, Imports, Exports) %>%
+  rename(commodity = Commodity_Description, country = Country_Name, year = Market_Year, production = Production, import = Imports, export = Exports) %>%
+  arrange(commodity, country, year)
+dim(psd_tidy)
+
+## This chunk contains the two lists of countries to remove  (feel free to use this code)
+
+## countries that no longer exist OR started reporting data together with their parent country:
+old_countries = c("Antigua and Barbuda", "EU-15", "EU-25", "Former Czechoslovakia", "Former Yugoslavia", "Fr.Ter.Africa-Issas", "French Polynesia", "Gaza Strip", "German Democratic Republic", "Germany, Federal Republic of", "Gibraltar", "Gilbert and Ellice Islands", "Greenland", "Guadeloupe", "Martinique", "Puerto Rico", "Serbia and Montenegro", "St. Lucia", "Union of Soviet Socialist Repu", "Virgin Islands of the U.S.", "Yemen (Aden)", "Yemen (Sanaa)", "Yugoslavia (>05/92)")
+
+## countries that stopped reporting individual data and instead report as part of "European Union":
+eu_countries = c("Austria","Belgium","Bulgaria","Croatia","Cyprus","Czechia","Denmark","Estonia","Finland","France","Germany","Greece","Hungary","Ireland","Italy","Latvia","Lithuania","Luxembourg","Malta","Netherlands","Poland","Portugal","Romania","Slovakia","Slovenia","Spain","Sweden")
+
+## if you want to use a filtering join, you can use this as one of the input data frames:
+countries_to_remove = tibble(
+  country = c(old_countries, eu_countries)
+)
+
+#step 4
+psd_tidy <- psd_tidy %>%
+  filter(!country %in% c(old_countries, eu_countries),
+         !commodity %in% c("Cotton", "Millet", "Mixed Grain"),
+         year != 2024)
+dim(psd_tidy)
+```
+
+
+> FINALLY: To help us check your work, **please print at least the first 6 rows of your result!** Note failure to print when asked may lose points!
+
+> NOTE: For the rest of question 1, unless otherwise specified, always start with `psd_tidy` as your initial tidy data frame. **Do NOT overwrite `psd_tidy` with any operations in later parts**, since we will reuse it.
+
+
+```{r}
+# insert code below
+head(psd_tidy)
+```
+
+
+
+
+### Part 1B
+
+
+Let's explore a few columns of our `psd_tidy` data frame. Perform the following operations **in order**. Remember you should NOT overwrite `psd_tidy`, so please save your output to a new data frame called `psd_summary`.
+
+
+1. Filter to keep just the last 10 years (i.e. years from 2014 to 2023, including both endpoints).
+2. For each commodity and country, calculate the total sum in each of the production, import, and export columns.
+   - Note: use `na.rm=TRUE` inside `sum()` to ignore any NAs
+   - **After step 2, your summary data frame should have 2567 rows**
+3. Regroup by just commodity, and find the total global production of each commodity across all countries.
+4. Calculate the percentage that each country’s production, import, and export represent out of the total global production of each commodity.
+   - Make sure to multiply the ratio by 100 to get a percentage between 0% and 100%.
+   - Note production percentages will sum to 100% over countries, but import and export percentages will not since they are also calculated relative to total global production.
+   - If you can, please round the final value to 2 decimals using `round(x,2)` where x is the column to be rounded.
+
+
+Save your output as `psd_summary`, then use it to answer the following questions. For each question, you should print a table with 1 row for each commodity showing the country name and the percentage. Please **print the ENTIRE data frame!** Note there are only 60 commodities, so you should only need to print 60 rows, use something like `print(df,n=60)`
+
+
+1. For each commodity, which country is the largest global **producer** by percentage over the last 10 years?
+2. For each commodity, which country is the largest global **importer** by percentage over the last 10 years?
+3. For each commodity, which country is the largest global **exporter** by percentage over the last 10 years?
+
+
+```{r}
+# insert code below
+#step 1 Filter to keep just the last 10 years (i.e. years from 2014 to 2023, including both endpoints).
+psd_last_10_years <- psd_tidy %>%
+  filter(year >= 2014 & year <= 2023)
+#step 2 For each commodity and country, calculate the total sum in each of the production, import, and export columns.
+psd_summary <- psd_last_10_years %>%
+  group_by(commodity, country) %>%
+  summarise(production = sum(production, na.rm = TRUE),
+            import = sum(import, na.rm = TRUE),
+            export = sum(export, na.rm = TRUE))
+dim(psd_summary)
+#step 3 Regroup by just commodity, and find the total global production of each commodity across all countries.
+global_production <- psd_summary %>%
+  group_by(commodity) %>%
+  summarise(total_global_production = sum(production, na.rm = TRUE))
+#step 4 Calculate the percentage that each country’s production, import, and export represent out of the total global production of each commodity.
+psd_summary <- psd_summary %>%
+  left_join(global_production, by = "commodity") %>%
+  mutate(production_pct = round((production / total_global_production) * 100, 2),
+         import_pct = round((import / total_global_production) * 100, 2),
+         export_pct = round((export / total_global_production) * 100, 2))
+#1. For each commodity, which country is the largest global **producer** by percentage over the last 10 years?
+largest_producers <- psd_summary %>%
+  arrange(desc(production_pct)) %>%
+  group_by(commodity) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(commodity, country, production_pct)
+#2. For each commodity, which country is the largest global **importer** by percentage over the last 10 years?
+largest_importers <- psd_summary %>%
+  arrange(desc(import_pct)) %>%
+  group_by(commodity) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(commodity, country, import_pct)
+#3. For each commodity, which country is the largest global **exporter** by percentage over the last 10 years?
+largest_exporters <- psd_summary %>%
+  arrange(desc(export_pct)) %>%
+  group_by(commodity) %>%
+  slice(1) %>%
+  ungroup() %>%
+  select(commodity, country, export_pct)
+
+print(largest_producers, n = 60)
+print(largest_importers, n = 60)
+print(largest_exporters, n = 60)
+```
+
+
+
+
+### Part 1C
+
+
+Again, starting with `psd_tidy` from part 1A, let's focus on a few popular commodities and visualize trends in their production over the years. Create a new data frame for each question and DO NOT modify `psd_tidy` itself.
+
+
+1. Corn is one of the most popular commodities. Make a plot of corn production over time.
+   - Find the top 5 countries that CURRENTLY produce the most corn (i.e. in 2023).
+   - Filter rows so you only have the corn production levels for these 5 countries. Note this means you need to remove both rows of other countries AND rows of other commodities.
+   - Make a line plot showing production levels vs time, using a different color for each country. (Note: production units are in millions of tonnes)
+
+2. Repeat the above steps for Wheat, another of the most popular commodities. Note you should be able to just copy the entire code above and just change Corn to Wheat everywhere.
+
+3. Several of the commodities include the words “Meat”, “Dairy”, or “Fresh” (these are fresh produce). For example, "Meat, Chicken" and "Poultry, Meat, Broiler" are two of the several meat commodities and "Dairy, Butter" and "Dairy, Cheese" are two of several dairy commodities.
+   - Create a new categorical data column with the value "Meat", "Dairy", or "Fresh" if the commodity name contains one of these three words and NA if not.
+   - Drop the NA rows in this new column
+   - Re-summarize the data to show the total meat, total dairy, and total fresh produce production for each country and for each year
+   - Filter rows so you only have the top 10 countries by overall production of all three categories
+   - Make a bar plot comparing the levels of meat, dairy, and fresh produce production for these 10 countries, using a different facet for each category.
+
+
+> Remember all plots MUST have appropriate labels/title for full points!!
+
+
+```{r}
+# insert code below
+#step 1 Make a plot of corn production over time.
+top_5_corn_countries <- psd_tidy %>%
+  filter(commodity == "Corn", year == 2023) %>%
+  arrange(desc(production)) %>%
+  slice(1:5) %>%
+  select(country)
+corn_production <- psd_tidy %>%
+  filter(commodity == "Corn", country %in% top_5_corn_countries$country) %>%
+  select(country, year, production)
+ggplot(corn_production, aes(x = year, y = production / 1000, color = country)) + 
+  geom_line() +
+  labs(title = "Corn Production Over Time",
+       x = "Year",
+       y = "Production (million tonnes)",
+       color = "Country")
+#step 2 Repeat the above steps for Wheat
+top_5_wheat_countries <- psd_tidy %>%
+  filter(commodity == "Wheat", year == 2023) %>%
+  arrange(desc(production)) %>%
+  slice(1:5) %>%
+  select(country)
+wheat_production <- psd_tidy %>%
+  filter(commodity == "Wheat", country %in% top_5_wheat_countries$country) %>%
+  select(country, year, production)
+ggplot(wheat_production, aes(x = year, y = production / 1000, color = country)) +
+  geom_line() +
+  labs(title = "Wheat Production Over Time",
+       x = "Year",
+       y = "Production (million tonnes)",
+       color = "Country")
+#step 3
+categorized_production <- psd_tidy %>%
+  mutate(category = case_when(
+    str_detect(commodity, "Meat") ~ "Meat",
+    str_detect(commodity, "Dairy") ~ "Dairy",
+    str_detect(commodity, "Fresh") ~ "Fresh",
+    TRUE ~ NA_character_
+  )) %>%
+  drop_na(category) %>%
+  group_by(country, year, category) %>%
+  summarise(production = sum(production, na.rm = TRUE), .groups = 'drop')
+
+top_countries <- categorized_production %>%
+  group_by(country) %>%
+  summarise(total_production = sum(production, na.rm = TRUE)) %>%
+  arrange(desc(total_production)) %>%
+  slice(1:10) %>%
+  select(country)
+
+filtered_production <- categorized_production %>%
+  filter(country %in% top_countries$country) %>% 
+  group_by(country, category) %>%
+  summarise(production_by_group = sum(production))
+
+ggplot(filtered_production, aes(x = country, y = production_by_group / 1000, fill = category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~category) +
+  labs(title = "Production Comparison among Top 10 Countries",
+       x = "Country",
+       y = "Total Production (million tonnes)",
+       fill = "Category") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+
+
+## Question 2
+
+
+Question 1 was a little long and complicated, so question 2 has been intentionally made a bit simpler. There are just two parts! We will be working with a dataset that comes with the `dplyr` package. The `storms` dataset contains a subset of the NOAA Atlantic hurricane database. The data includes the positions and attributes of storms from 1975-2021. Storms from 1979 onward are measured every six hours during the lifetime of the storm. Storms in earlier years have some missing data.
+
+More info about the dataset can be found in the help page by running ` ?storms `
+
+```{r}
+data("storms")
+print(storms)
+```
+
+
+
+### Part 2A
+
+
+Note the data frame has many rows per storm. The purpose of this problem is to make a data summary `storms_summary` with one row per storm with the following variables:
+
+  - `year`: year of each storm
+  - `name`: name of each storm
+     - note there are many duplicate names in the dataset
+     - using both year and name (almost) uniquely identifies each storm with one exception (Zeta from Dec 2005 to Jan 2006, which we just ignore for now)
+  - `date`: date of each storm (we use the median as a middle point)
+  - `max_category`: maximum hurricane category reached
+  - `max_wind`: maximum wind speeds
+  - `min_pressure`: minimum air pressure (note pressure decreases as storm intensity increases)
+
+
+Follow these steps to create the summary:
+
+
+1. First, use the year, month, day columns to make a proper date format column named `date`.
+   - Hint: first use a string function to combine them into a single column with a separating character between each column, then convert it to a date using the right lubridate function.
+
+2. Group by `year` and `name` to (almost) uniquely identify each storm, then calculate each summary statistic listed above
+   - Note: please drop NA values by using `na.rm=TRUE` inside `median()`, `max()`, and `min()`
+
+3. After this, you will see some -Inf values which correspond to storms with no valid measurements for some of the variables. You can change ALL of these to NA by running `storms_summary[storms_summary==-Inf]=NA` which replaces in the entire data frame
+
+
+> Your result should have 639 rows. Sort this by descending date (i.e. most recent at the top) and **print at least the first 6 rows!**
+
+
+```{r}
+# insert code below
+#step 1
+storms <- storms %>%
+  mutate(date = make_date(year, month, day))
+#step 2
+storms_summary <- storms %>%
+  group_by(year, name) %>%
+  summarise(
+    date = median(date, na.rm = TRUE),
+    max_category = max(category, na.rm = TRUE),
+    max_wind = max(wind, na.rm = TRUE),
+    min_pressure = min(pressure, na.rm = TRUE),
+    .groups = 'drop'
+  )
+storms_summary
+#step 3
+storms_summary[storms_summary == -Inf] <- NA
+storms_summary <- storms_summary %>%
+  arrange(desc(date))
+
+print(head(storms_summary))
+```
+
+
+
+
+### Part 2B
+
+
+Finally we'll do a bit more visualizing and summarizing using `storms_summary` which you just created.
+
+
+1. Make a bar plot showing the average number of storms in each month.
+   - The x-axis should be Jan, Feb, ..., Dec
+   - The y-axis should show the average number of storms
+   - Again, **don't forget to add labels/title**
+   - **Comment on the plot, what do you notice?** Do some months have more storms than others?
+
+2. Make a similar bar plot, but this time showing the average `max_category` for storms in each month (again, remember to use `na.rm=TRUE`). **What do you notice?**
+   - Repeat the above for `max_wind`. **Is the trend similar to the previous plot?**
+
+
+```{r}
+# insert code below
+#step 1
+storms_summary$year <- year(storms_summary$date) # Extract year
+storms_summary$month <- month(storms_summary$date, label = TRUE, abbr = TRUE) 
+monthly_storm_counts <- storms_summary %>%
+  group_by(year, month) %>%
+  summarise(storms = n(), .groups = 'drop')
+avg_storms_by_month <- monthly_storm_counts %>%
+  group_by(month) %>%
+  summarise(avg_storms = mean(storms)) %>%
+  ungroup() %>%
+  mutate(month = factor(month, levels = month.abb)) %>%
+  arrange(month)
+ggplot(avg_storms_by_month, aes(x = month, y = avg_storms)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Number of Storms Per Month",
+       x = "Month",
+       y = "Average Number of Storms") +
+  theme_minimal()
+#step 2
+average_category_per_month <- storms_summary %>%
+  group_by(month) %>%
+  summarise(average_max_category = mean(max_category, na.rm = TRUE), .groups = 'drop') %>%
+  mutate(month = factor(month, levels = month.abb))
+
+ggplot(average_category_per_month, aes(x = month, y = average_max_category)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Max Category of Storms per Month",
+       x = "Month",
+       y = "Average Max Category") +
+  theme_minimal()
+
+#repeat for wind
+average_wind_per_month <- storms_summary %>%
+  group_by(month) %>%
+  summarise(average_max_wind = mean(max_wind, na.rm = TRUE), .groups = 'drop') %>%
+  mutate(month = factor(month, levels = month.abb))
+
+ggplot(average_wind_per_month, aes(x = month, y = average_max_wind)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Max Wind Speed of Storms per Month",
+       x = "Month",
+       y = "Average Max Wind Speed (knots)") +
+  theme_minimal()
+```
+
+> The bar plot shows that more storms occur from August to October, with September being the peak month. This matches the expected pattern for the Atlantic hurricane season. The least number of storms are seen from January to June, indicating clear seasonal differences in storm activity.
+
+> The bar plot shows that stronger storms usually happen from August to October, matching the hurricane season peak. This suggests storms are not only more frequent but also more intense during these months.
+
+> The plot for average max wind speed follows a similar trend to storm categories, with the strongest winds also in late summer to early fall. It confirms that this time frame sees not just more, but also fiercer storms.
+
+
